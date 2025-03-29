@@ -1,0 +1,35 @@
+{
+  "output": {
+    "filePath": "repomix-output.txt",
+    "style": "plain",
+    "parsableStyle": false,
+    "fileSummary": true,
+    "directoryStructure": true,
+    "removeComments": false,
+    "removeEmptyLines": false,
+    "topFilesLength": 100,
+    "showLineNumbers": false,
+    "copyToClipboard": true
+  },
+  "include": [
+    "lib/cardabs/**/*.go",
+    "lib/fastcards/**/*.go"
+  ],
+  "ignore": {
+    "useGitignore": false,
+    "useDefaultPatterns": false,
+    "customPatterns": [
+      "lib/fastcards/pkg/eval/**/*.go",
+      "lib/allocators/**/*.go",
+      "lib/tests/amirpoker/**/*.go",
+      "lib/tests/cfr/**/*.go",
+      "lib/tests/test_helpers/**/*.go"
+    ]
+  },
+  "security": {
+    "enableSecurityCheck": false
+  },
+  "tokenCount": {
+    "encoding": "o200k_base"
+  }
+}
