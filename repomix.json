@@ -1,0 +1,67 @@
+{
+  "output": {
+    "filePath": "repomix-output.txt",
+    "style": "plain",
+    "parsableStyle": false,
+    "fileSummary": true,
+    "directoryStructure": true,
+    "removeComments": false,
+    "removeEmptyLines": false,
+    "topFilesLength": 100,
+    "showLineNumbers": false,
+    "copyToClipboard": true
+  },
+  "include": [
+    "**/*.cpp",
+    "**/*.hpp",
+    "**/*.c",
+    "**/*.h",
+    "**/*.cc",
+    "**/*.cxx",
+    "**/*.py",
+    "**/*.sh",
+    "**/*.bash",
+    "**/Makefile",
+    "**/CMakeLists.txt",
+    "**/*.cmake",
+    "**/*.md",
+    "**/*.json",
+    "**/*.yaml",
+    "**/*.yml",
+    "script/**/*"
+  ],
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": [
+      "build/**",
+      "debug_build/**",
+      "**/vendor/**",
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/*.log",
+      "**/*.o",
+      "**/*.a",
+      "**/*.so",
+      "**/*.dylib",
+      "**/*.dll",
+      "**/*.exe",
+      "**/*.obj",
+      "**/*.out",
+      "**/tmp/**",
+      "**/temp/**",
+      "**/__pycache__/**",
+      "**/*.pyc",
+      "**/dist/**",
+      "lib/tests/**",
+      "**/*.bin",
+      "**/.*cache/**"
+    ]
+  },
+  "security": {
+    "enableSecurityCheck": false
+  },
+  "tokenCount": {
+    "encoding": "o200k_base"
+  }
+}
