@@ -62,4 +62,14 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     add_test(${TEST_SRC_NAME} ${TEST_SRC_NAME})
     target_link_libraries(${TEST_SRC_NAME} PRIVATE PTHASH)
   endforeach(TEST_SRC)
+
+# --- Add this section to create a static library for CGo linking ---
+add_library(pthash_static STATIC src/pthash_dummy.cpp) # Add dummy source file
+
+# Link this static library against the existing PTHASH INTERFACE library.
+# This effectively bundles the dependencies (like BITS) and usage requirements
+# (include paths, compile flags) defined by PTHASH INTERFACE into pthash_static.
+target_link_libraries(pthash_static INTERFACE PTHASH)
+# --- End of added section ---
+
 endif()
