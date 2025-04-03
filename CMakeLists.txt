@@ -68,6 +68,9 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   add_executable(test_fastmod src/test_fastmod.cpp)
   target_link_libraries(test_fastmod PRIVATE PTHASH)
 
+  add_executable(test_elias_fano src/test_elias_fano.cpp)
+  target_link_libraries(test_elias_fano PRIVATE PTHASH)
+
   file(GLOB TEST_SOURCES test/test_*.cpp)
   foreach(TEST_SRC ${TEST_SOURCES})
     get_filename_component (TEST_SRC_NAME ${TEST_SRC} NAME_WE) # without extension

@@ -158,21 +158,21 @@ struct elias_fano {
     iterator begin() const { return get_iterator_at(0); }
 
     uint64_t access(uint64_t i) const {
-        fprintf(stderr, "[P5.EF] ENTER elias_fano::access(i=%llu)\n", (unsigned long long)i);
+        fprintf(stderr, "[P8.EF_ACCESS] ENTER access(i=%llu)\n", (unsigned long long)i);
         assert(i < size());
-        fprintf(stderr, "[P5.EF]   Calling m_high_bits_d1.select(m_high_bits, i=%llu)...\n", (unsigned long long)i);
+        fprintf(stderr, "[P8.EF_ACCESS]   Calling m_high_bits_d1.select(m_high_bits, i=%llu)...\n", (unsigned long long)i);
         uint64_t select_result = m_high_bits_d1.select(m_high_bits, i);
-        fprintf(stderr, "[P5.EF]   m_high_bits_d1.select returned: %llu\n", (unsigned long long)select_result);
+        fprintf(stderr, "[P8.EF_ACCESS]   m_high_bits_d1.select returned: %llu\n", (unsigned long long)select_result);
         uint64_t high_val = select_result - i;
-        fprintf(stderr, "[P5.EF]   Calculated high_val = select_result - i = %llu\n", (unsigned long long)high_val);
-        fprintf(stderr, "[P5.EF]   Accessing m_low_bits.width()...\n");
+        fprintf(stderr, "[P8.EF_ACCESS]   Calculated high_val = select_result - i = %llu\n", (unsigned long long)high_val);
         uint64_t width = m_low_bits.width();
-        fprintf(stderr, "[P5.EF]   m_low_bits.width() = %llu\n", (unsigned long long)width);
-        fprintf(stderr, "[P5.EF]   Calling m_low_bits.access(i=%llu)...\n", (unsigned long long)i);
+        fprintf(stderr, "[P8.EF_ACCESS]   m_low_bits.width() = %llu\n", (unsigned long long)width);
+        fprintf(stderr, "[P8.EF_ACCESS]   Calling m_low_bits.access(i=%llu)...\n", (unsigned long long)i);
         uint64_t low_val = m_low_bits.access(i);
-        fprintf(stderr, "[P5.EF]   m_low_bits.access returned: %llu\n", (unsigned long long)low_val);
+        fprintf(stderr, "[P8.EF_ACCESS]   m_low_bits.access returned: %llu\n", (unsigned long long)low_val);
         uint64_t final_pos = (high_val << width) | low_val;
-        fprintf(stderr, "[P5.EF] EXIT elias_fano::access -> %llu\n", (unsigned long long)final_pos);
+        fprintf(stderr, "[P8.EF_ACCESS] EXIT access -> (high_val << width) | low_val = (%llu << %llu) | %llu = %llu\n",
+                (unsigned long long)high_val, (unsigned long long)width, (unsigned long long)low_val, (unsigned long long)final_pos);
         return final_pos;
     }
 

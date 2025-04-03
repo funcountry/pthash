@@ -133,8 +133,12 @@ struct single_phf  //
             } else {
                  fprintf(stderr, "[P4]   p >= num_keys()...\n");
                  uint64_t index = p - num_keys();
+                 fprintf(stderr, "[P8.PHF_POS] Minimal=true, p (%llu) >= num_keys (%llu). Calculating index = %llu - %llu = %llu\n",
+                        (unsigned long long)p, (unsigned long long)num_keys(), (unsigned long long)p, (unsigned long long)num_keys(), (unsigned long long)index);
                  fprintf(stderr, "[P4]   ... Calling m_free_slots.access(index=%llu)...\n", (unsigned long long)index);
                  uint64_t final_pos = m_free_slots.access(index);
+                 fprintf(stderr, "[P8.PHF_POS] m_free_slots.access(%llu) returned final_mapped_index: %llu\n",
+                        (unsigned long long)index, (unsigned long long)final_pos);
                  fprintf(stderr, "[P4]   m_free_slots.access returned final_pos: %llu\n", (unsigned long long)final_pos);
                  fprintf(stderr, "[P4] EXIT single_phf::position -> %llu\n", (unsigned long long)final_pos);
                  return final_pos;

@@ -92,30 +92,66 @@ struct darray {
         for any 0 <= i < num_positions();
     */
     inline uint64_t select(bit_vector const& B, uint64_t i) const {
+        fprintf(stderr, "%s ENTER select(i=%llu)\n", P8_LOG_PREFIX, (unsigned long long)i);
         assert(i < num_positions());
+        
         uint64_t block = i / block_size;
         int64_t block_pos = m_block_inventory[block];
+        fprintf(stderr, "%s   block=%llu, block_pos=%lld\n", P8_LOG_PREFIX, (unsigned long long)block, (long long)block_pos);
+        
         if (block_pos < 0) {  // sparse super-block
             uint64_t overflow_pos = uint64_t(-block_pos - 1);
-            return m_overflow_positions[overflow_pos + (i & (block_size - 1))];
+            uint64_t idx = overflow_pos + (i & (block_size - 1));
+            uint64_t result = m_overflow_positions[idx];
+            fprintf(stderr, "%s   SPARSE BLOCK: overflow_pos=%llu, idx=%llu, result=%llu\n", 
+                    P8_LOG_PREFIX, (unsigned long long)overflow_pos, (unsigned long long)idx, (unsigned long long)result);
+            fprintf(stderr, "%s EXIT select -> %llu (sparse block)\n", P8_LOG_PREFIX, (unsigned long long)result);
+            return result;
         }
 
         uint64_t subblock = i / subblock_size;
-        uint64_t start_pos = uint64_t(block_pos) + m_subblock_inventory[subblock];
+        uint64_t subblock_offset = m_subblock_inventory[subblock];
+        uint64_t start_pos = uint64_t(block_pos) + subblock_offset;
         uint64_t reminder = i & (subblock_size - 1);
-        if (!reminder) return start_pos;
+        
+        fprintf(stderr, "%s   DENSE BLOCK: subblock=%llu, subblock_offset=%llu, start_pos=%llu, reminder=%llu\n", 
+                P8_LOG_PREFIX, (unsigned long long)subblock, (unsigned long long)subblock_offset, 
+                (unsigned long long)start_pos, (unsigned long long)reminder);
+        
+        if (!reminder) {
+            fprintf(stderr, "%s EXIT select -> %llu (exact subblock)\n", P8_LOG_PREFIX, (unsigned long long)start_pos);
+            return start_pos;
+        }
 
         std::vector<uint64_t> const& data = B.data();
         uint64_t word_idx = start_pos >> 6;
         uint64_t word_shift = start_pos & 63;
         uint64_t word = WordGetter()(data, word_idx) & (uint64_t(-1) << word_shift);
+        
+        fprintf(stderr, "%s   SCANNING: word_idx=%llu, word_shift=%llu, initial_word=0x%llx\n", 
+                P8_LOG_PREFIX, (unsigned long long)word_idx, (unsigned long long)word_shift, (unsigned long long)word);
+        
+        uint64_t popcnt_debug = 0;
         while (true) {
             uint64_t popcnt = util::popcount(word);
+            popcnt_debug = popcnt;
+            fprintf(stderr, "%s   SCANNING: word=0x%llx, popcnt=%llu, reminder=%llu\n", 
+                    P8_LOG_PREFIX, (unsigned long long)word, (unsigned long long)popcnt, (unsigned long long)reminder);
+            
             if (reminder < popcnt) break;
             reminder -= popcnt;
             word = WordGetter()(data, ++word_idx);
         }
-        return (word_idx << 6) + util::select_in_word(word, reminder);
+        
+        uint64_t select_in_word_result = util::select_in_word(word, reminder);
+        uint64_t final_result = (word_idx << 6) + select_in_word_result;
+        
+        fprintf(stderr, "%s   FOUND: word_idx=%llu, popcnt=%llu, select_in_word=%llu, final=%llu\n", 
+                P8_LOG_PREFIX, (unsigned long long)word_idx, (unsigned long long)popcnt_debug, 
+                (unsigned long long)select_in_word_result, (unsigned long long)final_result);
+        
+        fprintf(stderr, "%s EXIT select -> %llu\n", P8_LOG_PREFIX, (unsigned long long)final_result);
+        return final_result;
     }
 
     inline uint64_t num_positions() const { return m_positions; }
@@ -213,6 +249,9 @@ protected:
         }
         cur_block_positions.clear();
     }
+
+    // Use a detailed log prefix for debug output in Phase 8
+    const char* P8_LOG_PREFIX = "[P8.D1_SELECT]";
 };
 
 namespace util {

@@ -225,30 +225,36 @@ struct compact_vector  //
     }
 
     uint64_t access(uint64_t i) const {
-        fprintf(stderr, "[P6.CV] ENTER compact_vector::access(i=%llu)\n", (unsigned long long)i);
+        const char* log_prefix = "[P8.CV_ACCESS]";
+        fprintf(stderr, "%s ENTER access(i=%llu)\n", log_prefix, (unsigned long long)i);
         assert(i < size());
         uint64_t pos = i * m_width;
         uint64_t block = pos >> 6;
         uint64_t shift = pos & 63;
-        fprintf(stderr, "[P6.CV]   Intermediate values: pos=%llu, block=%llu, shift=%llu, m_mask=%llu\n", 
-                (unsigned long long)pos, (unsigned long long)block, (unsigned long long)shift, 
-                (unsigned long long)m_mask);
-        
+        fprintf(stderr, "%s   Intermediate: pos=%llu, block=%llu, shift=%llu, m_mask=0x%llX, m_width=%llu\n",
+                log_prefix, (unsigned long long)pos, (unsigned long long)block,
+                (unsigned long long)shift, (unsigned long long)m_mask, (unsigned long long)m_width);
+
         uint64_t result;
         if (shift + m_width <= 64) {
-            uint64_t block_data = m_data[block];
-            fprintf(stderr, "[P6.CV]   m_data[block=%llu]=%llu\n", (unsigned long long)block, (unsigned long long)block_data);
-            result = block_data >> shift & m_mask;
+            fprintf(stderr, "%s   Path: Single word read. Reading m_data[%llu] (0x%llX)\n",
+                    log_prefix, (unsigned long long)block, (unsigned long long)m_data[block]);
+            result = m_data[block] >> shift & m_mask;
         } else {
-            uint64_t block_data = m_data[block];
-            uint64_t next_block_data = m_data[block + 1];
-            fprintf(stderr, "[P6.CV]   m_data[block=%llu]=%llu, m_data[block+1=%llu]=%llu\n", 
-                    (unsigned long long)block, (unsigned long long)block_data,
-                    (unsigned long long)(block+1), (unsigned long long)next_block_data);
-            result = (block_data >> shift) | (next_block_data << (64 - shift) & m_mask);
+            fprintf(stderr, "%s   Path: Multi-word read. Reading m_data[%llu] (0x%llX)",
+                    log_prefix, (unsigned long long)block, (unsigned long long)m_data[block]);
+            // Check bounds before reading the second word
+            if (block + 1 < m_data.size()) {
+                 fprintf(stderr, " and m_data[%llu] (0x%llX)\n",
+                         (unsigned long long)(block + 1), (unsigned long long)m_data[block + 1]);
+                 result = (m_data[block] >> shift) | (m_data[block + 1] << (64 - shift) & m_mask);
+            } else {
+                 // This case indicates the expected padding might be missing or index is borderline
+                 fprintf(stderr, "\n%s   WARNING: Reading second word at end of data boundary (block+1 >= m_data.size()). Applying mask only to first part.\n", log_prefix);
+                 result = (m_data[block] >> shift) & m_mask; // Only take bits from the first word
+            }
         }
-        
-        fprintf(stderr, "[P6.CV] EXIT compact_vector::access -> %llu\n", (unsigned long long)result);
+        fprintf(stderr, "%s EXIT access -> %llu (0x%llX)\n", log_prefix, (unsigned long long)result, (unsigned long long)result);
         return result;
     }
 
