@@ -28,29 +28,47 @@ constexpr pthash::pthash_search_type search_type = pthash::pthash_search_type::x
 using pthash_builder_type = pthash::internal_memory_builder_single_phf<hasher, bucketer>;
 using pthash_function_type = pthash::single_phf<hasher, bucketer, encoder, minimal_build, search_type>;
 
-// Helper function to read binary uint64_t keys (same as before)
+// Helper function to read binary uint64_t keys from file
 std::vector<uint64_t> read_keys(const std::string& filename) {
     std::ifstream input(filename, std::ios::binary);
-    if (!input) throw std::runtime_error("Cannot open key file: " + filename);
+    if (!input) {
+        throw std::runtime_error("Cannot open key file: " + filename);
+    }
+    
     uint64_t count;
     input.read(reinterpret_cast<char*>(&count), sizeof(count));
-    if (!input) throw std::runtime_error("Failed to read key count from " + filename);
+    if (!input) {
+        throw std::runtime_error("Failed to read key count from " + filename);
+    }
+    
     std::vector<uint64_t> keys(count);
     input.read(reinterpret_cast<char*>(keys.data()), count * sizeof(uint64_t));
-    if (!input) throw std::runtime_error("Failed to read all keys from " + filename);
+    if (!input) {
+        throw std::runtime_error("Failed to read all keys from " + filename);
+    }
+    
     return keys;
 }
 
-// Helper function to read binary uint16_t values (same as before)
+// Helper function to read binary uint16_t values from file
 std::vector<uint16_t> read_values(const std::string& filename) {
-     std::ifstream input(filename, std::ios::binary);
-    if (!input) throw std::runtime_error("Cannot open value file: " + filename);
+    std::ifstream input(filename, std::ios::binary);
+    if (!input) {
+        throw std::runtime_error("Cannot open value file: " + filename);
+    }
+    
     uint64_t count;
     input.read(reinterpret_cast<char*>(&count), sizeof(count));
-     if (!input) throw std::runtime_error("Failed to read value count from " + filename);
+    if (!input) {
+        throw std::runtime_error("Failed to read value count from " + filename);
+    }
+    
     std::vector<uint16_t> values(count);
     input.read(reinterpret_cast<char*>(values.data()), count * sizeof(uint16_t));
-     if (!input) throw std::runtime_error("Failed to read all values from " + filename);
+    if (!input) {
+        throw std::runtime_error("Failed to read all values from " + filename);
+    }
+    
     return values;
 }
 

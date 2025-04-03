@@ -23,6 +23,12 @@ if(NOT TARGET PTHASH)
     target_compile_options(PTHASH INTERFACE -mbmi2 -msse4.2) # for hardware popcount and pdep
   endif()
 
+  # Add ARM64 specific flags
+  if (UNIX AND (CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "arm64"))
+    MESSAGE(STATUS "Compiling for ARM64 with appropriate flags")
+    target_compile_options(PTHASH INTERFACE -march=native)
+  endif()
+
   if (PTHASH_ENABLE_ALL_ENCODERS)
     MESSAGE(STATUS "compiling with all encoders")
     target_compile_options(PTHASH INTERFACE -DPTHASH_ENABLE_ALL_ENCODERS)

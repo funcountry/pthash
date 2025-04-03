@@ -7,6 +7,7 @@
 #include <vector>
 #include <unordered_map>
 #include <cassert>
+#include <cstdio> // For fprintf
 
 namespace pthash {
 
@@ -190,8 +191,15 @@ struct dictionary {
     }
 
     uint64_t access(uint64_t i) const {
+        fprintf(stderr, "[P5] ENTER dictionary::access(i=%llu)\n", (unsigned long long)i);
+        fprintf(stderr, "[P5]   Calling m_ranks.access(%llu)...\n", (unsigned long long)i);
         uint64_t rank = m_ranks.access(i);
-        return m_dict.access(rank);
+        fprintf(stderr, "[P5]   m_ranks.access returned rank: %llu\n", (unsigned long long)rank);
+        fprintf(stderr, "[P5]   Calling m_dict.access(rank=%llu)...\n", (unsigned long long)rank);
+        uint64_t pilot = m_dict.access(rank);
+        fprintf(stderr, "[P5]   m_dict.access returned value (pilot): %llu\n", (unsigned long long)pilot);
+        fprintf(stderr, "[P5] EXIT dictionary::access -> %llu\n", (unsigned long long)pilot);
+        return pilot;
     }
 
     template <typename Visitor>
@@ -204,6 +212,7 @@ struct dictionary {
         visit_impl(visitor, *this);
     }
 
+    // ========= START AGGRESSIVE GETTERS =========
     const bits::compact_vector& get_ranks() const {
         return m_ranks;
     }
@@ -211,12 +220,19 @@ struct dictionary {
     const bits::compact_vector& get_dict() const {
         return m_dict;
     }
+    // ========= END AGGRESSIVE GETTERS =========
 
 private:
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
+        // ======== [P3.DICT] START ========
+        fprintf(stderr, "[P3.DICT] ENTER dictionary::visit_impl\n");
+        fprintf(stderr, "[P3.DICT] Visiting m_ranks... Type: %s, Addr: %p\n", typeid(t.m_ranks).name(), (void*)&t.m_ranks);
         visitor.visit(t.m_ranks);
+        fprintf(stderr, "[P3.DICT] Visiting m_dict... Type: %s, Addr: %p\n", typeid(t.m_dict).name(), (void*)&t.m_dict);
         visitor.visit(t.m_dict);
+        fprintf(stderr, "[P3.DICT] EXIT dictionary::visit_impl\n");
+        // ======== [P3.DICT] END ========
     }
 
     bits::compact_vector m_ranks;
@@ -397,8 +413,22 @@ struct dual {
     }
 
     uint64_t access(uint64_t i) const {
-        if (i < m_front.size()) return m_front.access(i);
-        return m_back.access(i - m_front.size());
+        fprintf(stderr, "[P5] ENTER dual::access(i=%llu)\n", (unsigned long long)i);
+        fprintf(stderr, "[P5]   Accessing m_front.size()...\n");
+        uint64_t front_size = m_front.size();
+        fprintf(stderr, "[P5]   m_front.size() = %llu\n", (unsigned long long)front_size);
+        fprintf(stderr, "[P5]   Checking if i (%llu) < front_size (%llu)\n", (unsigned long long)i, (unsigned long long)front_size);
+        uint64_t result;
+        if (i < front_size) {
+             fprintf(stderr, "[P5]   Calling m_front.access(i=%llu)...\n", (unsigned long long)i);
+             result = m_front.access(i);
+        } else {
+            uint64_t back_index = i - front_size;
+            fprintf(stderr, "[P5]   Calling m_back.access(back_index=%llu)...\n", (unsigned long long)back_index);
+            result = m_back.access(back_index);
+        }
+        fprintf(stderr, "[P5] EXIT dual::access -> %llu\n", (unsigned long long)result);
+        return result;
     }
 
     template <typename Visitor>
@@ -411,6 +441,7 @@ struct dual {
         visit_impl(visitor, *this);
     }
 
+    // ========= START AGGRESSIVE GETTERS =========
     const Front& get_front() const {
         return m_front;
     }
@@ -418,12 +449,19 @@ struct dual {
     const Back& get_back() const {
         return m_back;
     }
+    // ========= END AGGRESSIVE GETTERS =========
 
 private:
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
+         // ======== [P3.DUAL] START ========
+        fprintf(stderr, "[P3.DUAL] ENTER dual::visit_impl\n");
+        fprintf(stderr, "[P3.DUAL] Visiting m_front... Type: %s, Addr: %p\n", typeid(t.m_front).name(), (void*)&t.m_front);
         visitor.visit(t.m_front);
+        fprintf(stderr, "[P3.DUAL] Visiting m_back... Type: %s, Addr: %p\n", typeid(t.m_back).name(), (void*)&t.m_back);
         visitor.visit(t.m_back);
+        fprintf(stderr, "[P3.DUAL] EXIT dual::visit_impl\n");
+        // ======== [P3.DUAL] END ========
     }
 
     Front m_front;

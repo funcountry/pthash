@@ -17,6 +17,7 @@
 #include <sys/resource.h>
 #include <cassert>
 #include <memory>
+#include <cstdio>
 
 #ifdef __GNUG__
 #include <cxxabi.h>  // for name demangling
@@ -348,7 +349,17 @@ struct generic_saver {
     template <typename T>
     void visit(T const& val) {
         if constexpr (is_pod<T>::value) {
+            const char* prefix = std::is_fundamental<T>::value ? "[P3.SAVE.FUNDAMENTAL]" : "[P3.SAVE.POD]";
+            size_t initial_offset = m_os.tellp();
+            fprintf(stderr, "%s BEFORE Writing: Name: %s, Type: %s, Size: %lu, Addr: %p, Offset: %zu\n",
+                   prefix, "POD_VALUE", typeid(T).name(), sizeof(T), (void*)&val, initial_offset);
+
             save_pod(m_os, val);
+
+            size_t final_offset = m_os.tellp();
+            size_t bytes_written = final_offset - initial_offset;
+            fprintf(stderr, "%s AFTER Writing: Name: %s, Type: %s, Offset: %zu, Bytes Written: %zu\n",
+                   prefix, "POD_VALUE", typeid(T).name(), final_offset, bytes_written);
         } else {
             val.visit(*this);
         }
@@ -357,7 +368,39 @@ struct generic_saver {
     template <typename T, typename Allocator>
     void visit(std::vector<T, Allocator> const& vec) {
         if constexpr (is_pod<T>::value) {
-            save_vec(m_os, vec);
+            size_t n = vec.size();
+
+            const char* prefix_size = "[P3.SAVE.VEC_SIZE]";
+            size_t initial_offset_size = m_os.tellp();
+            fprintf(stderr, "%s BEFORE Writing: Name: %s, Type: %s, Value: %lu, Size: %lu, Addr: %p, Offset: %zu\n",
+                   prefix_size, "vector_size", typeid(size_t).name(), (unsigned long)n, sizeof(size_t), (void*)&n, initial_offset_size);
+
+            visit(n);
+
+            size_t final_offset_size = m_os.tellp();
+            size_t bytes_written_size = final_offset_size - initial_offset_size;
+            fprintf(stderr, "%s AFTER Writing: Name: %s, Type: %s, Offset: %zu, Bytes Written: %zu\n",
+                   prefix_size, "vector_size", typeid(size_t).name(), final_offset_size, bytes_written_size);
+
+            const char* prefix_data = "[P3.SAVE.VEC_DATA]";
+            size_t initial_offset_data = m_os.tellp();
+            size_t data_bytes_to_write = sizeof(T) * n;
+            std::string preview = "(Preview N/A for this type)";
+            if constexpr (std::is_same<T, uint64_t>::value) {
+                 preview = "(First 3: ";
+                 for(size_t k=0; k < std::min((size_t)3, n); ++k) preview += std::to_string(vec[k]) + (k<2 && k<n-1 ? ", " : "");
+                 preview += ")";
+            }
+
+            fprintf(stderr, "%s BEFORE Writing: Name: %s, Type: std::vector<%s>, Count: %lu, ElementSize: %lu, TotalBytes: %lu, Addr: %p, Offset: %zu %s\n",
+                   prefix_data, "vector_data", typeid(T).name(), (unsigned long)n, sizeof(T), data_bytes_to_write, (void*)vec.data(), initial_offset_data, preview.c_str());
+
+            m_os.write(reinterpret_cast<char const*>(vec.data()), static_cast<std::streamsize>(data_bytes_to_write));
+
+            size_t final_offset_data = m_os.tellp();
+            size_t bytes_written_data = final_offset_data - initial_offset_data;
+            fprintf(stderr, "%s AFTER Writing: Name: %s, Type: std::vector<%s>, Offset: %zu, Bytes Written: %zu\n",
+                   prefix_data, "vector_data", typeid(T).name(), final_offset_data, bytes_written_data);
         } else {
             size_t n = vec.size();
             visit(n);

@@ -5,6 +5,7 @@
 #include "compact_vector.hpp"
 
 #include <iterator>
+#include <cstdio> // For fprintf
 
 namespace bits {
 
@@ -157,9 +158,22 @@ struct elias_fano {
     iterator begin() const { return get_iterator_at(0); }
 
     uint64_t access(uint64_t i) const {
+        fprintf(stderr, "[P5.EF] ENTER elias_fano::access(i=%llu)\n", (unsigned long long)i);
         assert(i < size());
-        return ((m_high_bits_d1.select(m_high_bits, i) - i) << m_low_bits.width()) |
-               m_low_bits.access(i);
+        fprintf(stderr, "[P5.EF]   Calling m_high_bits_d1.select(m_high_bits, i=%llu)...\n", (unsigned long long)i);
+        uint64_t select_result = m_high_bits_d1.select(m_high_bits, i);
+        fprintf(stderr, "[P5.EF]   m_high_bits_d1.select returned: %llu\n", (unsigned long long)select_result);
+        uint64_t high_val = select_result - i;
+        fprintf(stderr, "[P5.EF]   Calculated high_val = select_result - i = %llu\n", (unsigned long long)high_val);
+        fprintf(stderr, "[P5.EF]   Accessing m_low_bits.width()...\n");
+        uint64_t width = m_low_bits.width();
+        fprintf(stderr, "[P5.EF]   m_low_bits.width() = %llu\n", (unsigned long long)width);
+        fprintf(stderr, "[P5.EF]   Calling m_low_bits.access(i=%llu)...\n", (unsigned long long)i);
+        uint64_t low_val = m_low_bits.access(i);
+        fprintf(stderr, "[P5.EF]   m_low_bits.access returned: %llu\n", (unsigned long long)low_val);
+        uint64_t final_pos = (high_val << width) | low_val;
+        fprintf(stderr, "[P5.EF] EXIT elias_fano::access -> %llu\n", (unsigned long long)final_pos);
+        return final_pos;
     }
 
     /*
@@ -285,6 +299,7 @@ struct elias_fano {
                m_high_bits_d0.num_bytes() + m_low_bits.num_bytes();
     }
 
+    // ========= START AGGRESSIVE GETTERS =========
     uint64_t get_back() const {
         return m_back;
     }
@@ -296,6 +311,7 @@ struct elias_fano {
     const bits::compact_vector& get_low_bits() const {
         return m_low_bits;
     }
+    // ========= END AGGRESSIVE GETTERS =========
 
     void swap(elias_fano& other) {
         std::swap(m_back, other.m_back);
@@ -324,11 +340,26 @@ private:
 
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
+        // ======== [P3.EF] START ========
+        fprintf(stderr, "[P3.EF] ENTER elias_fano::visit_impl\n");
+
+        fprintf(stderr, "[P3.EF] Visiting m_back... Type: %s, Value: %llu, Addr: %p, Size: %lu\n", typeid(t.m_back).name(), (unsigned long long)t.m_back, (void*)&t.m_back, sizeof(t.m_back));
         visitor.visit(t.m_back);
+
+        fprintf(stderr, "[P3.EF] Visiting m_high_bits... Type: %s, Addr: %p\n", typeid(t.m_high_bits).name(), (void*)&t.m_high_bits);
         visitor.visit(t.m_high_bits);
+
+        fprintf(stderr, "[P3.EF] Visiting m_high_bits_d1... Type: %s, Addr: %p\n", typeid(t.m_high_bits_d1).name(), (void*)&t.m_high_bits_d1);
         visitor.visit(t.m_high_bits_d1);
+
+        fprintf(stderr, "[P3.EF] Visiting m_high_bits_d0... Type: %s, Addr: %p\n", typeid(t.m_high_bits_d0).name(), (void*)&t.m_high_bits_d0);
         visitor.visit(t.m_high_bits_d0);
+
+        fprintf(stderr, "[P3.EF] Visiting m_low_bits... Type: %s, Addr: %p\n", typeid(t.m_low_bits).name(), (void*)&t.m_low_bits);
         visitor.visit(t.m_low_bits);
+
+        fprintf(stderr, "[P3.EF] EXIT elias_fano::visit_impl\n");
+        // ======== [P3.EF] END ========
     }
 
     /*

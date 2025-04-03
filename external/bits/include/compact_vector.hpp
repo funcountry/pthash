@@ -3,6 +3,7 @@
 #include <vector>
 #include <cmath>
 #include <iterator>
+#include <cstdio> // For fprintf
 
 #include "essentials.hpp"
 
@@ -224,10 +225,22 @@ struct compact_vector  //
     }
 
     uint64_t access(uint64_t i) const {
+        fprintf(stderr, "[P5.CV] ENTER compact_vector::access(i=%llu)\n", (unsigned long long)i);
         assert(i < size());
+        fprintf(stderr, "[P5.CV]   Accessing m_width: %llu\n", (unsigned long long)m_width);
         uint64_t pos = i * m_width;
+        fprintf(stderr, "[P5.CV]   Calculated bit position: %llu\n", (unsigned long long)pos);
+
+        fprintf(stderr, "[P5.CV]   Accessing m_data via pointer arithmetic\n");
         const char* ptr = reinterpret_cast<const char*>(m_data.data());
-        return (*(reinterpret_cast<uint64_t const*>(ptr + (pos >> 3))) >> (pos & 7)) & m_mask;
+        uint64_t byte_offset = pos >> 3;
+        uint64_t bit_shift = pos & 7;
+        fprintf(stderr, "[P5.CV]   Calculated byte_offset=%llu, bit_shift=%llu\n", (unsigned long long)byte_offset, (unsigned long long)bit_shift);
+        fprintf(stderr, "[P5.CV]   Accessing m_mask: %llu\n", (unsigned long long)m_mask);
+
+        uint64_t result = (*(reinterpret_cast<uint64_t const*>(ptr + byte_offset)) >> bit_shift) & m_mask;
+        fprintf(stderr, "[P5.CV] EXIT compact_vector::access -> %llu\n", (unsigned long long)result);
+        return result;
     }
 
     uint64_t back() const { return operator[](size() - 1); }
@@ -268,10 +281,23 @@ private:
 
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
+        // ======== [P3.CV] START ========
+        fprintf(stderr, "[P3.CV] ENTER compact_vector::visit_impl\n");
+
+        fprintf(stderr, "[P3.CV] Visiting m_size... Type: %s, Value: %llu, Addr: %p, Size: %lu\n", typeid(t.m_size).name(), (unsigned long long)t.m_size, (void*)&t.m_size, sizeof(t.m_size));
         visitor.visit(t.m_size);
+
+        fprintf(stderr, "[P3.CV] Visiting m_width... Type: %s, Value: %llu, Addr: %p, Size: %lu\n", typeid(t.m_width).name(), (unsigned long long)t.m_width, (void*)&t.m_width, sizeof(t.m_width));
         visitor.visit(t.m_width);
+
+        fprintf(stderr, "[P3.CV] Visiting m_mask... Type: %s, Value: %llu, Addr: %p, Size: %lu\n", typeid(t.m_mask).name(), (unsigned long long)t.m_mask, (void*)&t.m_mask, sizeof(t.m_mask));
         visitor.visit(t.m_mask);
+
+        fprintf(stderr, "[P3.CV] Visiting m_data... Type: %s, Addr: %p\n", typeid(t.m_data).name(), (void*)&t.m_data);
         visitor.visit(t.m_data);
+
+        fprintf(stderr, "[P3.CV] EXIT compact_vector::visit_impl\n");
+        // ======== [P3.CV] END ========
     }
 };
 
