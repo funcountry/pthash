@@ -204,6 +204,14 @@ struct dictionary {
         visit_impl(visitor, *this);
     }
 
+    const bits::compact_vector& get_ranks() const {
+        return m_ranks;
+    }
+
+    const bits::compact_vector& get_dict() const {
+        return m_dict;
+    }
+
 private:
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
@@ -401,6 +409,14 @@ struct dual {
     template <typename Visitor>
     void visit(Visitor& visitor) {
         visit_impl(visitor, *this);
+    }
+
+    const Front& get_front() const {
+        return m_front;
+    }
+
+    const Back& get_back() const {
+        return m_back;
     }
 
 private:

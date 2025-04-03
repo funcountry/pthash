@@ -126,6 +126,56 @@ struct single_phf  //
         return m_seed;
     }
 
+    uint64_t get_seed() const {
+        return m_seed;
+    }
+
+    uint64_t get_num_keys() const {
+        return m_num_keys;
+    }
+
+    uint64_t get_table_size() const {
+        return m_table_size;
+    }
+
+    __uint128_t get_M_128() const {
+        return m_M_128;
+    }
+
+    uint64_t get_M_64() const {
+        return m_M_64;
+    }
+
+    const Bucketer& get_bucketer() const {
+        return m_bucketer;
+    }
+
+    const Encoder& get_pilots() const {
+        return m_pilots;
+    }
+
+    const bits::elias_fano<false, false>& get_free_slots() const {
+        return m_free_slots;
+    }
+
+    uint64_t position_raw(typename Hasher::hash_type hash) const {
+        const uint64_t bucket = m_bucketer.bucket(hash.first());
+        const uint64_t pilot = m_pilots.access(bucket);
+
+        uint64_t p = 0;
+        if constexpr (Search == pthash_search_type::xor_displacement) {
+            /* xor displacement */
+            const uint64_t hashed_pilot = default_hash64(pilot, m_seed);
+            p = fastmod::fastmod_u64(hash.second() ^ hashed_pilot, m_M_128, m_table_size);
+        } else {
+            /* additive displacement */
+            const uint64_t s = fastmod::fastdiv_u32(pilot, m_M_64);
+            p = fastmod::fastmod_u32(((hash64(hash.second() + s).mix()) >> 33) + pilot, m_M_64,
+                                    m_table_size);
+        }
+        return p;
+    }
+
     template <typename Visitor>
     void visit(Visitor& visitor) const {
         visit_impl(visitor, *this);

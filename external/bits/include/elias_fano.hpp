@@ -276,9 +276,25 @@ struct elias_fano {
     uint64_t back() const { return m_back; }
     uint64_t size() const { return m_low_bits.size(); }
 
+    auto num_low_bits() const {
+        return m_low_bits.num_bytes() * 8;
+    }
+
     uint64_t num_bytes() const {
         return sizeof(m_back) + m_high_bits.num_bytes() + m_high_bits_d1.num_bytes() +
                m_high_bits_d0.num_bytes() + m_low_bits.num_bytes();
+    }
+
+    uint64_t get_back() const {
+        return m_back;
+    }
+
+    const bits::bit_vector& get_high_bits() const {
+        return m_high_bits;
+    }
+
+    const bits::compact_vector& get_low_bits() const {
+        return m_low_bits;
     }
 
     void swap(elias_fano& other) {

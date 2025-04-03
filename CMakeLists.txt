@@ -12,6 +12,7 @@ if(NOT TARGET PTHASH)
   target_include_directories(PTHASH SYSTEM INTERFACE external/fastmod)
   target_include_directories(PTHASH SYSTEM INTERFACE external/mm_file/include)
   target_include_directories(PTHASH SYSTEM INTERFACE external/xxHash)
+  target_include_directories(PTHASH SYSTEM INTERFACE external/json/include)
 
   target_compile_features(PTHASH INTERFACE cxx_std_17)
 
@@ -54,6 +55,9 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   target_link_libraries(build PRIVATE PTHASH CMD_LINE_PARSER)
   add_executable(example src/example.cpp)
   target_link_libraries(example PRIVATE PTHASH CMD_LINE_PARSER)
+  
+  add_executable(build_phf src/build_phf.cpp)
+  target_link_libraries(build_phf PRIVATE PTHASH)
 
   file(GLOB TEST_SOURCES test/test_*.cpp)
   foreach(TEST_SRC ${TEST_SOURCES})

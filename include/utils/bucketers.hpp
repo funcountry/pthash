@@ -183,6 +183,22 @@ struct skew_bucketer {
         std::swap(m_M_num_sparse_buckets, other.m_M_num_sparse_buckets);
     }
 
+    uint64_t get_num_dense_buckets() const {
+        return m_num_dense_buckets;
+    }
+
+    uint64_t get_num_sparse_buckets() const {
+        return m_num_sparse_buckets;
+    }
+
+    __uint128_t get_M_dense() const {
+        return m_M_num_dense_buckets;
+    }
+
+    __uint128_t get_M_sparse() const {
+        return m_M_num_sparse_buckets;
+    }
+
     template <typename Visitor>
     void visit(Visitor& visitor) const {
         visit_impl(visitor, *this);
