@@ -349,33 +349,51 @@ struct generic_saver {
     template <typename T>
     void visit(T const& val) {
         if constexpr (is_pod<T>::value) {
-            const char* prefix = std::is_fundamental<T>::value ? "[P3.SAVE.FUNDAMENTAL]" : "[P3.SAVE.POD]";
-            size_t initial_offset = m_os.tellp();
-            
-            if constexpr (std::is_same<T, __uint128_t>::value) {
-                // Special handling for __uint128_t
-                uint64_t high = static_cast<uint64_t>(val >> 64);
-                uint64_t low = static_cast<uint64_t>(val);
-                fprintf(stderr, "%s BEFORE Writing: Name: %s, Type: __uint128_t, Size: %lu, High: %llu, Low: %llu, Offset: %zu\n",
-                       prefix, "128BIT_VALUE", sizeof(T), (unsigned long long)high, (unsigned long long)low, initial_offset);
-            } else {
-                fprintf(stderr, "%s BEFORE Writing: Name: %s, Type: %s, Size: %lu, Addr: %p, Offset: %zu\n",
-                       prefix, "POD_VALUE", typeid(T).name(), sizeof(T), (void*)&val, initial_offset);
+            const char* pod_prefix = "[P3.SAVE.POD]";
+            if constexpr (std::is_fundamental<T>::value) {
+                pod_prefix = "[P3.SAVE.FUNDAMENTAL]";
+            } else if constexpr (std::is_same<T, __uint128_t>::value) {
+                pod_prefix = "[P3.SAVE.U128]";
             }
 
-            save_pod(m_os, val);
+            size_t initial_offset = m_os.tellp();
+            uint64_t high_part = 0, low_part = 0; // Initialize
+            std::string value_str = "(value not logged)";
+
+            if constexpr (std::is_same<T, __uint128_t>::value) {
+                high_part = static_cast<uint64_t>(val >> 64);
+                low_part = static_cast<uint64_t>(val);
+                fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu, MathHigh: %llu, MathLow: %llu\n",
+                        pod_prefix, "POD_VALUE", "__uint128_t", sizeof(T), initial_offset,
+                        (unsigned long long)high_part, (unsigned long long)low_part);
+            } else if constexpr (!std::is_same<T, bool>::value && std::is_integral<T>::value) {
+                // Log value for other integral types (adjust format specifier if needed)
+                unsigned long long uval = static_cast<unsigned long long>(val);
+                fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu, Value: %llu (0x%llX)\n",
+                    pod_prefix, "POD_VALUE", typeid(T).name(), sizeof(T), initial_offset, uval, uval);
+            } else {
+                 // Basic log for other POD types
+                fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu\n",
+                        pod_prefix, "POD_VALUE", typeid(T).name(), sizeof(T), initial_offset);
+            }
+
+            // THE ACTUAL WRITE
+            save_pod(m_os, val); // Assumed to handle endianness correctly
 
             size_t final_offset = m_os.tellp();
             size_t bytes_written = final_offset - initial_offset;
-            
+
+            // Determine actual write order if possible (requires knowing save_pod/endianness)
+            // For now, we'll assume little-endian where low bytes come first.
+            std::string order_note = "";
             if constexpr (std::is_same<T, __uint128_t>::value) {
-                // Special handling for __uint128_t in after-write message
-                fprintf(stderr, "%s AFTER Writing: Name: %s, Type: __uint128_t, Offset: %zu, Bytes Written: %zu\n",
-                       prefix, "128BIT_VALUE", final_offset, bytes_written);
-            } else {
-                fprintf(stderr, "%s AFTER Writing: Name: %s, Type: %s, Offset: %zu, Bytes Written: %zu\n",
-                       prefix, "POD_VALUE", typeid(T).name(), final_offset, bytes_written);
+               // ON LITTLE ENDIAN: The low_part bytes are written first.
+               order_note = ", Note: Wrote MathLow bytes then MathHigh bytes (assuming little-endian)";
             }
+
+            fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu%s\n",
+                    pod_prefix, "POD_VALUE", bytes_written, final_offset, order_note.c_str());
+
         } else {
             val.visit(*this);
         }
@@ -386,37 +404,53 @@ struct generic_saver {
         if constexpr (is_pod<T>::value) {
             size_t n = vec.size();
 
-            const char* prefix_size = "[P3.SAVE.VEC_SIZE]";
+            // --- Log writing the size (n) ---
+            const char* size_prefix = "[P3.SAVE.VEC_SIZE]";
             size_t initial_offset_size = m_os.tellp();
-            fprintf(stderr, "%s BEFORE Writing: Name: %s, Type: %s, Value: %lu, Size: %lu, Addr: %p, Offset: %zu\n",
-                   prefix_size, "vector_size", typeid(size_t).name(), (unsigned long)n, sizeof(size_t), (void*)&n, initial_offset_size);
+            fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu, Value: %lu\n",
+                    size_prefix, "vector_size", typeid(size_t).name(), sizeof(size_t), initial_offset_size, (unsigned long)n);
 
-            visit(n); // Save the size first
+            visit(n); // This recursively calls visit for size_t, which will log itself
 
             size_t final_offset_size = m_os.tellp();
             size_t bytes_written_size = final_offset_size - initial_offset_size;
-            fprintf(stderr, "%s AFTER Writing: Name: %s, Type: %s, Offset: %zu, Bytes Written: %zu\n",
-                   prefix_size, "vector_size", typeid(size_t).name(), final_offset_size, bytes_written_size);
+            fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
+                    size_prefix, "vector_size", bytes_written_size, final_offset_size);
+            // --- End log writing the size ---
 
-            const char* prefix_data = "[P3.SAVE.VEC_DATA]";
-            size_t initial_offset_data = m_os.tellp();
-            size_t data_bytes_to_write = sizeof(T) * n;
-            std::string preview = "(Preview N/A for this type)";
-            if constexpr (std::is_same<T, uint64_t>::value) {
-                 preview = "(First 3: ";
-                 for(size_t k=0; k < std::min((size_t)3, n); ++k) preview += std::to_string(vec[k]) + (k<2 && k<n-1 ? ", " : "");
-                 preview += ")";
+
+            // --- Log writing the data ---
+            if (n > 0) { // Only log data write if there's data
+               const char* data_prefix = "[P3.SAVE.VEC_DATA]";
+               size_t initial_offset_data = m_os.tellp(); // Offset before data write
+               size_t data_bytes_to_write = sizeof(T) * n;
+
+               // Preview (optional, adjust as needed)
+               std::string preview = "";
+               if constexpr (std::is_same<T, uint64_t>::value || std::is_same<T, uint32_t>::value || std::is_same<T, uint16_t>::value) {
+                    preview = ", Preview: [";
+                    for(size_t k=0; k < std::min((size_t)3, n); ++k) preview += std::to_string(vec[k]) + (k<2 && k<n-1 ? ", " : "");
+                    preview += "...]";
+               }
+
+               fprintf(stderr, "%s.BEFORE Name: %s, ElementType: %s, Count: %lu, ElementSize: %lu, TotalBytes: %lu, Offset: %zu%s\n",
+                       data_prefix, "vector_data", typeid(T).name(), (unsigned long)n, sizeof(T), data_bytes_to_write, initial_offset_data, preview.c_str());
+
+               m_os.write(reinterpret_cast<char const*>(vec.data()), static_cast<std::streamsize>(data_bytes_to_write));
+
+               size_t final_offset_data = m_os.tellp();
+               size_t bytes_written_data = final_offset_data - initial_offset_data;
+                if (!m_os) {
+                     fprintf(stderr, "%s.ERROR Error occurred during vector data write!\n", data_prefix);
+                     // Consider throwing or handling the error appropriately
+                } else if (bytes_written_data != data_bytes_to_write) {
+                     fprintf(stderr, "%s.WARN Wrote %zu bytes but expected %zu bytes!\n", data_prefix, bytes_written_data, data_bytes_to_write);
+                }
+               fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
+                       data_prefix, "vector_data", bytes_written_data, final_offset_data);
             }
+            // --- End log writing the data ---
 
-            fprintf(stderr, "%s BEFORE Writing: Name: %s, Type: std::vector<%s>, Count: %lu, ElementSize: %lu, TotalBytes: %lu, Addr: %p, Offset: %zu %s\n",
-                   prefix_data, "vector_data", typeid(T).name(), (unsigned long)n, sizeof(T), data_bytes_to_write, (void*)vec.data(), initial_offset_data, preview.c_str());
-
-            m_os.write(reinterpret_cast<char const*>(vec.data()), static_cast<std::streamsize>(data_bytes_to_write));
-
-            size_t final_offset_data = m_os.tellp();
-            size_t bytes_written_data = final_offset_data - initial_offset_data;
-            fprintf(stderr, "%s AFTER Writing: Name: %s, Type: std::vector<%s>, Offset: %zu, Bytes Written: %zu\n",
-                   prefix_data, "vector_data", typeid(T).name(), final_offset_data, bytes_written_data);
         } else {
             size_t n = vec.size();
             visit(n);

@@ -151,10 +151,43 @@ protected:
 
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
+        const char* prefix = "[P3.SAVE.DARRAY]";
+
+        // Log m_positions
+        size_t offset_before_positions = visitor.bytes();
+        fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu\n",
+                prefix, "m_positions", "uint64_t", sizeof(t.m_positions), offset_before_positions);
         visitor.visit(t.m_positions);
+        size_t offset_after_positions = visitor.bytes();
+        fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
+                prefix, "m_positions", offset_after_positions - offset_before_positions, offset_after_positions);
+
+        // Log m_block_inventory
+        size_t offset_before_block_inv = visitor.bytes();
+        fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Offset: %zu\n",
+                prefix, "m_block_inventory", "std::vector<int64_t>", offset_before_block_inv);
         visitor.visit(t.m_block_inventory);
+        size_t offset_after_block_inv = visitor.bytes();
+        fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
+                prefix, "m_block_inventory", offset_after_block_inv - offset_before_block_inv, offset_after_block_inv);
+
+        // Log m_subblock_inventory
+        size_t offset_before_subblock_inv = visitor.bytes();
+        fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Offset: %zu\n",
+                prefix, "m_subblock_inventory", "std::vector<uint16_t>", offset_before_subblock_inv);
         visitor.visit(t.m_subblock_inventory);
+        size_t offset_after_subblock_inv = visitor.bytes();
+        fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
+                prefix, "m_subblock_inventory", offset_after_subblock_inv - offset_before_subblock_inv, offset_after_subblock_inv);
+
+        // Log m_overflow_positions
+        size_t offset_before_overflow = visitor.bytes();
+        fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Offset: %zu\n",
+                prefix, "m_overflow_positions", "std::vector<uint64_t>", offset_before_overflow);
         visitor.visit(t.m_overflow_positions);
+        size_t offset_after_overflow = visitor.bytes();
+        fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
+                prefix, "m_overflow_positions", offset_after_overflow - offset_before_overflow, offset_after_overflow);
     }
 
     static void flush_cur_block(std::vector<uint64_t>& cur_block_positions,

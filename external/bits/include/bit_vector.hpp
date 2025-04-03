@@ -332,10 +332,25 @@ protected:
 
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
-        //fprintf(stderr, "[P3.BV] ENTER bit_vector::visit_impl\n");
-        visitor.visit(t.m_num_bits);
-        visitor.visit(t.m_data);
-        //fprintf(stderr, "[P3.BV] EXIT bit_vector::visit_impl\n");
+        const char* prefix = "[P3.SAVE.BV]";
+
+        // Log m_num_bits
+        size_t offset_before_num_bits = visitor.bytes();
+        fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu\n",
+                prefix, "m_num_bits", "uint64_t", sizeof(t.m_num_bits), offset_before_num_bits);
+        visitor.visit(t.m_num_bits); // *** ACTUAL CALL ***
+        size_t offset_after_num_bits = visitor.bytes();
+        fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
+                prefix, "m_num_bits", offset_after_num_bits - offset_before_num_bits, offset_after_num_bits);
+
+        // Log m_data (vector)
+        size_t offset_before_data = visitor.bytes();
+        fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Offset: %zu\n",
+               prefix, "m_data", "std::vector<uint64_t>", offset_before_data);
+        visitor.visit(t.m_data); // *** ACTUAL CALL *** (This will trigger vector logging from essentials.hpp)
+        size_t offset_after_data = visitor.bytes();
+        fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
+               prefix, "m_data", offset_after_data - offset_before_data, offset_after_data);
     }
 };
 

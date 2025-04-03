@@ -225,21 +225,30 @@ struct compact_vector  //
     }
 
     uint64_t access(uint64_t i) const {
-        fprintf(stderr, "[P5.CV] ENTER compact_vector::access(i=%llu)\n", (unsigned long long)i);
+        fprintf(stderr, "[P6.CV] ENTER compact_vector::access(i=%llu)\n", (unsigned long long)i);
         assert(i < size());
-        fprintf(stderr, "[P5.CV]   Accessing m_width: %llu\n", (unsigned long long)m_width);
         uint64_t pos = i * m_width;
-        fprintf(stderr, "[P5.CV]   Calculated bit position: %llu\n", (unsigned long long)pos);
-
-        fprintf(stderr, "[P5.CV]   Accessing m_data via pointer arithmetic\n");
-        const char* ptr = reinterpret_cast<const char*>(m_data.data());
-        uint64_t byte_offset = pos >> 3;
-        uint64_t bit_shift = pos & 7;
-        fprintf(stderr, "[P5.CV]   Calculated byte_offset=%llu, bit_shift=%llu\n", (unsigned long long)byte_offset, (unsigned long long)bit_shift);
-        fprintf(stderr, "[P5.CV]   Accessing m_mask: %llu\n", (unsigned long long)m_mask);
-
-        uint64_t result = (*(reinterpret_cast<uint64_t const*>(ptr + byte_offset)) >> bit_shift) & m_mask;
-        fprintf(stderr, "[P5.CV] EXIT compact_vector::access -> %llu\n", (unsigned long long)result);
+        uint64_t block = pos >> 6;
+        uint64_t shift = pos & 63;
+        fprintf(stderr, "[P6.CV]   Intermediate values: pos=%llu, block=%llu, shift=%llu, m_mask=%llu\n", 
+                (unsigned long long)pos, (unsigned long long)block, (unsigned long long)shift, 
+                (unsigned long long)m_mask);
+        
+        uint64_t result;
+        if (shift + m_width <= 64) {
+            uint64_t block_data = m_data[block];
+            fprintf(stderr, "[P6.CV]   m_data[block=%llu]=%llu\n", (unsigned long long)block, (unsigned long long)block_data);
+            result = block_data >> shift & m_mask;
+        } else {
+            uint64_t block_data = m_data[block];
+            uint64_t next_block_data = m_data[block + 1];
+            fprintf(stderr, "[P6.CV]   m_data[block=%llu]=%llu, m_data[block+1=%llu]=%llu\n", 
+                    (unsigned long long)block, (unsigned long long)block_data,
+                    (unsigned long long)(block+1), (unsigned long long)next_block_data);
+            result = (block_data >> shift) | (next_block_data << (64 - shift) & m_mask);
+        }
+        
+        fprintf(stderr, "[P6.CV] EXIT compact_vector::access -> %llu\n", (unsigned long long)result);
         return result;
     }
 
@@ -281,12 +290,43 @@ private:
 
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
-        //fprintf(stderr, "[P3.CV] ENTER compact_vector::visit_impl\n");
-        visitor.visit(t.m_size);
-        visitor.visit(t.m_width);
-        visitor.visit(t.m_mask);
-        visitor.visit(t.m_data);
-        //fprintf(stderr, "[P3.CV] EXIT compact_vector::visit_impl\n");
+        const char* prefix = "[P3.SAVE.CV]";
+
+        // Log m_size
+        size_t offset_before_size = visitor.bytes();
+        fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu\n",
+                prefix, "m_size", "uint64_t", sizeof(t.m_size), offset_before_size);
+        visitor.visit(t.m_size); // *** ACTUAL CALL ***
+        size_t offset_after_size = visitor.bytes();
+        fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
+                prefix, "m_size", offset_after_size - offset_before_size, offset_after_size);
+
+        // Log m_width
+        size_t offset_before_width = visitor.bytes();
+        fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu\n",
+                prefix, "m_width", "uint64_t", sizeof(t.m_width), offset_before_width);
+        visitor.visit(t.m_width); // *** ACTUAL CALL ***
+        size_t offset_after_width = visitor.bytes();
+        fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
+                prefix, "m_width", offset_after_width - offset_before_width, offset_after_width);
+
+        // Log m_mask
+        size_t offset_before_mask = visitor.bytes();
+        fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu\n",
+                prefix, "m_mask", "uint64_t", sizeof(t.m_mask), offset_before_mask);
+        visitor.visit(t.m_mask); // *** ACTUAL CALL ***
+        size_t offset_after_mask = visitor.bytes();
+        fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
+                prefix, "m_mask", offset_after_mask - offset_before_mask, offset_after_mask);
+
+        // Log m_data (vector)
+        size_t offset_before_data = visitor.bytes();
+        fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Offset: %zu\n",
+                prefix, "m_data", "std::vector<uint64_t>", offset_before_data);
+        visitor.visit(t.m_data); // *** ACTUAL CALL *** (Will trigger vector logging)
+        size_t offset_after_data = visitor.bytes();
+        fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
+                prefix, "m_data", offset_after_data - offset_before_data, offset_after_data);
     }
 };
 
