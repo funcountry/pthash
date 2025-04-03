@@ -3,6 +3,7 @@
 #include "bit_vector.hpp"
 #include "darray.hpp"
 #include "compact_vector.hpp"
+#include "utils/instrumentation.hpp"
 
 #include <iterator>
 #include <cstdio> // For fprintf
@@ -74,9 +75,11 @@ struct elias_fano {
             if constexpr (encode_prefix_sum) {
                 v = v + last;             // prefix sum
             } else if (i and v < last) {  // check the order
+#if PTHASH_ENABLE_INSTRUMENTATION
                 std::cerr << "error at " << i << "/" << n << ":\n";
                 std::cerr << "last " << last << "\n";
                 std::cerr << "current " << v << "\n";
+#endif
                 throw std::runtime_error("sequence is not sorted");
             }
             if (l) cvb_low_bits.set(i + encode_prefix_sum, v & low_mask);
@@ -158,20 +161,20 @@ struct elias_fano {
     iterator begin() const { return get_iterator_at(0); }
 
     uint64_t access(uint64_t i) const {
-        fprintf(stderr, "[P8.EF_ACCESS] ENTER access(i=%llu)\n", (unsigned long long)i);
+        PTHASH_LOG("[P8.EF_ACCESS] ENTER access(i=%llu)\n", (unsigned long long)i);
         assert(i < size());
-        fprintf(stderr, "[P8.EF_ACCESS]   Calling m_high_bits_d1.select(m_high_bits, i=%llu)...\n", (unsigned long long)i);
+        PTHASH_LOG("[P8.EF_ACCESS]   Calling m_high_bits_d1.select(m_high_bits, i=%llu)...\n", (unsigned long long)i);
         uint64_t select_result = m_high_bits_d1.select(m_high_bits, i);
-        fprintf(stderr, "[P8.EF_ACCESS]   m_high_bits_d1.select returned: %llu\n", (unsigned long long)select_result);
+        PTHASH_LOG("[P8.EF_ACCESS]   m_high_bits_d1.select returned: %llu\n", (unsigned long long)select_result);
         uint64_t high_val = select_result - i;
-        fprintf(stderr, "[P8.EF_ACCESS]   Calculated high_val = select_result - i = %llu\n", (unsigned long long)high_val);
+        PTHASH_LOG("[P8.EF_ACCESS]   Calculated high_val = select_result - i = %llu\n", (unsigned long long)high_val);
         uint64_t width = m_low_bits.width();
-        fprintf(stderr, "[P8.EF_ACCESS]   m_low_bits.width() = %llu\n", (unsigned long long)width);
-        fprintf(stderr, "[P8.EF_ACCESS]   Calling m_low_bits.access(i=%llu)...\n", (unsigned long long)i);
+        PTHASH_LOG("[P8.EF_ACCESS]   m_low_bits.width() = %llu\n", (unsigned long long)width);
+        PTHASH_LOG("[P8.EF_ACCESS]   Calling m_low_bits.access(i=%llu)...\n", (unsigned long long)i);
         uint64_t low_val = m_low_bits.access(i);
-        fprintf(stderr, "[P8.EF_ACCESS]   m_low_bits.access returned: %llu\n", (unsigned long long)low_val);
+        PTHASH_LOG("[P8.EF_ACCESS]   m_low_bits.access returned: %llu\n", (unsigned long long)low_val);
         uint64_t final_pos = (high_val << width) | low_val;
-        fprintf(stderr, "[P8.EF_ACCESS] EXIT access -> (high_val << width) | low_val = (%llu << %llu) | %llu = %llu\n",
+        PTHASH_LOG("[P8.EF_ACCESS] EXIT access -> (high_val << width) | low_val = (%llu << %llu) | %llu = %llu\n",
                 (unsigned long long)high_val, (unsigned long long)width, (unsigned long long)low_val, (unsigned long long)final_pos);
         return final_pos;
     }
@@ -340,22 +343,22 @@ private:
 
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
-        //fprintf(stderr, "[P3.EF] ENTER elias_fano::visit_impl\n");
+        //PTHASH_LOG("[P3.EF] ENTER elias_fano::visit_impl\n");
         visitor.visit(t.m_back);
         visitor.visit(t.m_high_bits);
         visitor.visit(t.m_high_bits_d1);
         visitor.visit(t.m_high_bits_d0);
         
         // Add detailed logging for m_low_bits (LowBits compact vector) just before serialization
-        fprintf(stderr, "[CV_LOWBITS_SAVE] Pre-Save State: Size=%llu, Width=%llu, Mask=0x%llX, DataSize=%lu\n",
+        PTHASH_LOG("[CV_LOWBITS_SAVE] Pre-Save State: Size=%llu, Width=%llu, Mask=0x%llX, DataSize=%lu\n",
             (unsigned long long)t.m_low_bits.size(), 
             (unsigned long long)t.m_low_bits.width(),
             (unsigned long long)(t.m_low_bits.width() == 64 ? uint64_t(-1) : ((uint64_t(1) << t.m_low_bits.width()) - 1)),
             (unsigned long)t.m_low_bits.data().size());
             
         visitor.visit(t.m_low_bits);
-        fprintf(stderr, "[CV_LOWBITS_SAVE] Finished visiting m_low_bits\n");
-        //fprintf(stderr, "[P3.EF] EXIT elias_fano::visit_impl\n");
+        PTHASH_LOG("[CV_LOWBITS_SAVE] Finished visiting m_low_bits\n");
+        //PTHASH_LOG("[P3.EF] EXIT elias_fano::visit_impl\n");
     }
 
     /*

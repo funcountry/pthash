@@ -1,7 +1,12 @@
 #pragma once
 
+#include <algorithm>
+#include <vector>
+#include <cassert>
+
 #include "util.hpp"
 #include "bit_vector.hpp"
+#include "utils/instrumentation.hpp"
 
 namespace bits {
 
@@ -92,20 +97,20 @@ struct darray {
         for any 0 <= i < num_positions();
     */
     inline uint64_t select(bit_vector const& B, uint64_t i) const {
-        fprintf(stderr, "%s ENTER select(i=%llu)\n", P8_LOG_PREFIX, (unsigned long long)i);
+        PTHASH_LOG("%s ENTER select(i=%llu)\n", P8_LOG_PREFIX, (unsigned long long)i);
         assert(i < num_positions());
         
         uint64_t block = i / block_size;
         int64_t block_pos = m_block_inventory[block];
-        fprintf(stderr, "%s   block=%llu, block_pos=%lld\n", P8_LOG_PREFIX, (unsigned long long)block, (long long)block_pos);
+        PTHASH_LOG("%s   block=%llu, block_pos=%lld\n", P8_LOG_PREFIX, (unsigned long long)block, (long long)block_pos);
         
         if (block_pos < 0) {  // sparse super-block
             uint64_t overflow_pos = uint64_t(-block_pos - 1);
             uint64_t idx = overflow_pos + (i & (block_size - 1));
             uint64_t result = m_overflow_positions[idx];
-            fprintf(stderr, "%s   SPARSE BLOCK: overflow_pos=%llu, idx=%llu, result=%llu\n", 
+            PTHASH_LOG("%s   SPARSE BLOCK: overflow_pos=%llu, idx=%llu, result=%llu\n", 
                     P8_LOG_PREFIX, (unsigned long long)overflow_pos, (unsigned long long)idx, (unsigned long long)result);
-            fprintf(stderr, "%s EXIT select -> %llu (sparse block)\n", P8_LOG_PREFIX, (unsigned long long)result);
+            PTHASH_LOG("%s EXIT select -> %llu (sparse block)\n", P8_LOG_PREFIX, (unsigned long long)result);
             return result;
         }
 
@@ -114,12 +119,12 @@ struct darray {
         uint64_t start_pos = uint64_t(block_pos) + subblock_offset;
         uint64_t reminder = i & (subblock_size - 1);
         
-        fprintf(stderr, "%s   DENSE BLOCK: subblock=%llu, subblock_offset=%llu, start_pos=%llu, reminder=%llu\n", 
+        PTHASH_LOG("%s   DENSE BLOCK: subblock=%llu, subblock_offset=%llu, start_pos=%llu, reminder=%llu\n", 
                 P8_LOG_PREFIX, (unsigned long long)subblock, (unsigned long long)subblock_offset, 
                 (unsigned long long)start_pos, (unsigned long long)reminder);
         
         if (!reminder) {
-            fprintf(stderr, "%s EXIT select -> %llu (exact subblock)\n", P8_LOG_PREFIX, (unsigned long long)start_pos);
+            PTHASH_LOG("%s EXIT select -> %llu (exact subblock)\n", P8_LOG_PREFIX, (unsigned long long)start_pos);
             return start_pos;
         }
 
@@ -128,14 +133,14 @@ struct darray {
         uint64_t word_shift = start_pos & 63;
         uint64_t word = WordGetter()(data, word_idx) & (uint64_t(-1) << word_shift);
         
-        fprintf(stderr, "%s   SCANNING: word_idx=%llu, word_shift=%llu, initial_word=0x%llx\n", 
+        PTHASH_LOG("%s   SCANNING: word_idx=%llu, word_shift=%llu, initial_word=0x%llx\n", 
                 P8_LOG_PREFIX, (unsigned long long)word_idx, (unsigned long long)word_shift, (unsigned long long)word);
         
-        uint64_t popcnt_debug = 0;
+        PTHASH_LOG_VARS(uint64_t popcnt_debug = 0);
         while (true) {
             uint64_t popcnt = util::popcount(word);
-            popcnt_debug = popcnt;
-            fprintf(stderr, "%s   SCANNING: word=0x%llx, popcnt=%llu, reminder=%llu\n", 
+            PTHASH_LOG_VARS(popcnt_debug = popcnt);
+            PTHASH_LOG("%s   SCANNING: word=0x%llx, popcnt=%llu, reminder=%llu\n", 
                     P8_LOG_PREFIX, (unsigned long long)word, (unsigned long long)popcnt, (unsigned long long)reminder);
             
             if (reminder < popcnt) break;
@@ -146,11 +151,11 @@ struct darray {
         uint64_t select_in_word_result = util::select_in_word(word, reminder);
         uint64_t final_result = (word_idx << 6) + select_in_word_result;
         
-        fprintf(stderr, "%s   FOUND: word_idx=%llu, popcnt=%llu, select_in_word=%llu, final=%llu\n", 
+        PTHASH_LOG("%s   FOUND: word_idx=%llu, popcnt=%llu, select_in_word=%llu, final=%llu\n", 
                 P8_LOG_PREFIX, (unsigned long long)word_idx, (unsigned long long)popcnt_debug, 
                 (unsigned long long)select_in_word_result, (unsigned long long)final_result);
         
-        fprintf(stderr, "%s EXIT select -> %llu\n", P8_LOG_PREFIX, (unsigned long long)final_result);
+        PTHASH_LOG("%s EXIT select -> %llu\n", P8_LOG_PREFIX, (unsigned long long)final_result);
         return final_result;
     }
 
@@ -187,42 +192,42 @@ protected:
 
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
-        const char* prefix = "[P3.SAVE.DARRAY]";
+        PTHASH_LOG_VARS(const char* prefix = "[P3.SAVE.DARRAY]");
 
         // Log m_positions
-        size_t offset_before_positions = visitor.bytes();
-        fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu\n",
+        PTHASH_LOG_VARS(size_t offset_before_positions = visitor.bytes());
+        PTHASH_LOG("%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu\n",
                 prefix, "m_positions", "uint64_t", sizeof(t.m_positions), offset_before_positions);
         visitor.visit(t.m_positions);
-        size_t offset_after_positions = visitor.bytes();
-        fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
+        PTHASH_LOG_VARS(size_t offset_after_positions = visitor.bytes());
+        PTHASH_LOG("%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
                 prefix, "m_positions", offset_after_positions - offset_before_positions, offset_after_positions);
 
         // Log m_block_inventory
-        size_t offset_before_block_inv = visitor.bytes();
-        fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Offset: %zu\n",
+        PTHASH_LOG_VARS(size_t offset_before_block_inv = visitor.bytes());
+        PTHASH_LOG("%s.BEFORE Name: %s, Type: %s, Offset: %zu\n",
                 prefix, "m_block_inventory", "std::vector<int64_t>", offset_before_block_inv);
         visitor.visit(t.m_block_inventory);
-        size_t offset_after_block_inv = visitor.bytes();
-        fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
+        PTHASH_LOG_VARS(size_t offset_after_block_inv = visitor.bytes());
+        PTHASH_LOG("%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
                 prefix, "m_block_inventory", offset_after_block_inv - offset_before_block_inv, offset_after_block_inv);
 
         // Log m_subblock_inventory
-        size_t offset_before_subblock_inv = visitor.bytes();
-        fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Offset: %zu\n",
+        PTHASH_LOG_VARS(size_t offset_before_subblock_inv = visitor.bytes());
+        PTHASH_LOG("%s.BEFORE Name: %s, Type: %s, Offset: %zu\n",
                 prefix, "m_subblock_inventory", "std::vector<uint16_t>", offset_before_subblock_inv);
         visitor.visit(t.m_subblock_inventory);
-        size_t offset_after_subblock_inv = visitor.bytes();
-        fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
+        PTHASH_LOG_VARS(size_t offset_after_subblock_inv = visitor.bytes());
+        PTHASH_LOG("%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
                 prefix, "m_subblock_inventory", offset_after_subblock_inv - offset_before_subblock_inv, offset_after_subblock_inv);
 
         // Log m_overflow_positions
-        size_t offset_before_overflow = visitor.bytes();
-        fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Offset: %zu\n",
+        PTHASH_LOG_VARS(size_t offset_before_overflow = visitor.bytes());
+        PTHASH_LOG("%s.BEFORE Name: %s, Type: %s, Offset: %zu\n",
                 prefix, "m_overflow_positions", "std::vector<uint64_t>", offset_before_overflow);
         visitor.visit(t.m_overflow_positions);
-        size_t offset_after_overflow = visitor.bytes();
-        fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
+        PTHASH_LOG_VARS(size_t offset_after_overflow = visitor.bytes());
+        PTHASH_LOG("%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
                 prefix, "m_overflow_positions", offset_after_overflow - offset_before_overflow, offset_after_overflow);
     }
 

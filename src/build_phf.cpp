@@ -9,6 +9,7 @@
 #include <numeric> // For std::iota
 #include <cstdio>  // For fprintf
 #include <unordered_map> // For sample key lookup
+#include <thread>
 
 // Include necessary PTHash headers
 #include "pthash.hpp"       // Main PTHash header
@@ -16,6 +17,8 @@
 #include "nlohmann/json.hpp" // nlohmann/json library
 #include "utils/util.hpp" // For constants
 #include "utils/hasher.hpp" // For default_hash64 used in logging
+#include "utils/instrumentation.hpp"
+#include "single_phf.hpp"
 
 // Define the specific PTHash configuration we want to use
 // *** MUST MATCH THE CONFIGURATION USED IN THE ORIGINAL BUILD & WRAPPER ***
@@ -25,8 +28,8 @@ using encoder = pthash::dictionary_dictionary; // This is dual<dictionary, dicti
 constexpr bool minimal_build = true;
 constexpr pthash::pthash_search_type search_type = pthash::pthash_search_type::xor_displacement;
 
-using pthash_builder_type = pthash::internal_memory_builder_single_phf<hasher, bucketer>;
-using pthash_function_type = pthash::single_phf<hasher, bucketer, encoder, minimal_build, search_type>;
+using pthash_builder_type = pthash::internal_memory_builder_single_phf<hasher, pthash::skew_bucketer>;
+using pthash_function_type = pthash::single_phf<hasher, pthash::skew_bucketer, pthash::dictionary_dictionary, minimal_build, search_type>;
 
 // Helper function to read binary uint64_t keys from file
 std::vector<uint64_t> read_keys(const std::string& filename) {
@@ -77,7 +80,7 @@ std::vector<uint16_t> read_values(const std::string& filename) {
 nlohmann::json get_bit_vector_details(const bits::bit_vector& bv) {
     nlohmann::json j;
     // *** DEBUG PRINT ***
-    fprintf(stderr, "[DEBUG] get_bit_vector_details: bv.num_bits()=%llu, bv.data().size()=%lu\n",
+    PTHASH_LOG("[DEBUG] get_bit_vector_details: bv.num_bits()=%llu, bv.data().size()=%lu\n",
             (unsigned long long)bv.num_bits(), (unsigned long)bv.data().size());
     // --- END DEBUG PRINT ---
     j["NumBits"] = bv.num_bits();
@@ -89,7 +92,7 @@ nlohmann::json get_bit_vector_details(const bits::bit_vector& bv) {
 nlohmann::json get_vector_uint64_details(const std::vector<uint64_t>& vec) {
     nlohmann::json j;
     // *** DEBUG PRINT ***
-    fprintf(stderr, "[DEBUG] get_vector_uint64_details: vec.size()=%lu\n", (unsigned long)vec.size());
+    PTHASH_LOG("[DEBUG] get_vector_uint64_details: vec.size()=%lu\n", (unsigned long)vec.size());
     // --- END DEBUG PRINT ---
     j["Size"] = vec.size();
     return j;
@@ -98,7 +101,7 @@ nlohmann::json get_vector_uint64_details(const std::vector<uint64_t>& vec) {
 nlohmann::json get_compact_vector_details(const bits::compact_vector& cv) {
     nlohmann::json j;
     // *** DEBUG PRINT ***
-    fprintf(stderr, "[DEBUG] get_compact_vector_details: cv.size()=%llu, cv.width()=%llu, cv.data().size()=%lu\n",
+    PTHASH_LOG("[DEBUG] get_compact_vector_details: cv.size()=%llu, cv.width()=%llu, cv.data().size()=%lu\n",
            (unsigned long long)cv.size(), (unsigned long long)cv.width(), (unsigned long)cv.data().size());
     // --- END DEBUG PRINT ---
     j["Size"] = cv.size(); // Use existing size() method
@@ -134,7 +137,7 @@ nlohmann::json get_elias_fano_details(const bits::elias_fano<false, false>& ef) 
      j["NumKeys"] = ef.size(); // Use existing size() method
 
      // Debug print for troubleshooting serialization vs loading
-     fprintf(stderr, "[DEBUG] EliasFano details: UniverseSize=%llu, NumKeys=%llu\n",
+     PTHASH_LOG("[DEBUG] EliasFano details: UniverseSize=%llu, NumKeys=%llu\n",
              (unsigned long long)ef.get_back(), (unsigned long long)ef.size());
      // --- END DEBUG PRINT ---
 
@@ -228,7 +231,7 @@ int main(int argc, char** argv) {
         for (uint64_t i = 0; i < num_keys; ++i) {
             uint64_t phf_index = mphf(keys[i]);
             if (phf_index >= num_keys) {
-                 fprintf(stderr, "CRITICAL ERROR: PHF index %llu out of bounds for key %llu (num_keys=%llu)!\n",
+                 PTHASH_LOG("CRITICAL ERROR: PHF index %llu out of bounds for key %llu (num_keys=%llu)!\n",
                          (unsigned long long)phf_index, (unsigned long long)keys[i], (unsigned long long)num_keys);
                  throw std::runtime_error("PHF index out of bounds!");
             }
@@ -285,7 +288,7 @@ int main(int argc, char** argv) {
                  if (it != key_to_original_index.end()) {
                      sample_indices.push_back(it->second);
                  } else {
-                     fprintf(stderr, "Warning: Sample key %llu not found in input keys!\n", (unsigned long long)sk);
+                     PTHASH_LOG("Warning: Sample key %llu not found in input keys!\n", (unsigned long long)sk);
                  }
             }
 
@@ -309,13 +312,13 @@ int main(int argc, char** argv) {
                 uint64_t h2 = h.second(); // Used for displacement
 
                 // DEBUG INSTRUMENTATION: Print internal M values from bucketer
-                __uint128_t m_dense = mphf.get_bucketer().get_M_dense();
-                __uint128_t m_sparse = mphf.get_bucketer().get_M_sparse();
+                PTHASH_LOG_VARS(__uint128_t m_dense = mphf.get_bucketer().get_M_dense());
+                PTHASH_LOG_VARS(__uint128_t m_sparse = mphf.get_bucketer().get_M_sparse());
                 
-                fprintf(stderr, "[BUILD_PHF DEBUG] Key=%llu, h1=0x%llx\n", (unsigned long long)key, (unsigned long long)h1);
-                fprintf(stderr, "[BUILD_PHF DEBUG] m_M_dense H=0x%llx L=0x%llx\n", 
+                PTHASH_LOG("[BUILD_PHF DEBUG] Key=%llu, h1=0x%llx\n", (unsigned long long)key, (unsigned long long)h1);
+                PTHASH_LOG("[BUILD_PHF DEBUG] m_M_dense H=0x%llx L=0x%llx\n", 
                         (unsigned long long)(m_dense >> 64), (unsigned long long)m_dense);
-                fprintf(stderr, "[BUILD_PHF DEBUG] m_M_sparse H=0x%llx L=0x%llx\n", 
+                PTHASH_LOG("[BUILD_PHF DEBUG] m_M_sparse H=0x%llx L=0x%llx\n", 
                         (unsigned long long)(m_sparse >> 64), (unsigned long long)m_sparse);
                 
                 // Store both hashes for clarity, even if they are the same for murmurhash2_64

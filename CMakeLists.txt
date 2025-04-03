@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.5...4.0)
 project(PTHASH)
 
+# Add option for instrumentation
+option(PTHASH_ENABLE_INSTRUMENTATION "Enable debug instrumentation and logging" OFF)
+
 if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release")
 endif ()
@@ -15,6 +18,15 @@ if(NOT TARGET PTHASH)
   target_include_directories(PTHASH SYSTEM INTERFACE external/json/include)
 
   target_compile_features(PTHASH INTERFACE cxx_std_17)
+
+  # Set instrumentation flag if enabled
+  if (PTHASH_ENABLE_INSTRUMENTATION)
+    MESSAGE(STATUS "Instrumentation is ENABLED")
+    target_compile_definitions(PTHASH INTERFACE -DPTHASH_ENABLE_INSTRUMENTATION=1)
+  else()
+    MESSAGE(STATUS "Instrumentation is DISABLED")
+    target_compile_definitions(PTHASH INTERFACE -DPTHASH_ENABLE_INSTRUMENTATION=0)
+  endif()
 
   MESSAGE(STATUS "Compiling for processor: " ${CMAKE_HOST_SYSTEM_PROCESSOR})
   if (UNIX AND (CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "x86_64"))

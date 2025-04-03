@@ -6,6 +6,8 @@
 #include <cstdio> // For fprintf
 
 #include "essentials.hpp"
+// Include our instrumentation header
+#include "utils/instrumentation.hpp"
 
 namespace bits {
 
@@ -225,36 +227,36 @@ struct compact_vector  //
     }
 
     uint64_t access(uint64_t i) const {
-        const char* log_prefix = "[P8.CV_ACCESS]";
-        fprintf(stderr, "%s ENTER access(i=%llu)\n", log_prefix, (unsigned long long)i);
+        PTHASH_LOG_VARS(const char* log_prefix = "[P8.CV_ACCESS]");
+        PTHASH_LOG("%s ENTER access(i=%llu)\n", log_prefix, (unsigned long long)i);
         assert(i < size());
         uint64_t pos = i * m_width;
         uint64_t block = pos >> 6;
         uint64_t shift = pos & 63;
-        fprintf(stderr, "%s   Intermediate: pos=%llu, block=%llu, shift=%llu, m_mask=0x%llX, m_width=%llu\n",
+        PTHASH_LOG("%s   Intermediate: pos=%llu, block=%llu, shift=%llu, m_mask=0x%llX, m_width=%llu\n",
                 log_prefix, (unsigned long long)pos, (unsigned long long)block,
                 (unsigned long long)shift, (unsigned long long)m_mask, (unsigned long long)m_width);
 
         uint64_t result;
         if (shift + m_width <= 64) {
-            fprintf(stderr, "%s   Path: Single word read. Reading m_data[%llu] (0x%llX)\n",
+            PTHASH_LOG("%s   Path: Single word read. Reading m_data[%llu] (0x%llX)\n",
                     log_prefix, (unsigned long long)block, (unsigned long long)m_data[block]);
             result = m_data[block] >> shift & m_mask;
         } else {
-            fprintf(stderr, "%s   Path: Multi-word read. Reading m_data[%llu] (0x%llX)",
+            PTHASH_LOG("%s   Path: Multi-word read. Reading m_data[%llu] (0x%llX)",
                     log_prefix, (unsigned long long)block, (unsigned long long)m_data[block]);
             // Check bounds before reading the second word
             if (block + 1 < m_data.size()) {
-                 fprintf(stderr, " and m_data[%llu] (0x%llX)\n",
+                 PTHASH_LOG(" and m_data[%llu] (0x%llX)\n",
                          (unsigned long long)(block + 1), (unsigned long long)m_data[block + 1]);
                  result = (m_data[block] >> shift) | (m_data[block + 1] << (64 - shift) & m_mask);
             } else {
                  // This case indicates the expected padding might be missing or index is borderline
-                 fprintf(stderr, "\n%s   WARNING: Reading second word at end of data boundary (block+1 >= m_data.size()). Applying mask only to first part.\n", log_prefix);
+                 PTHASH_LOG("\n%s   WARNING: Reading second word at end of data boundary (block+1 >= m_data.size()). Applying mask only to first part.\n", log_prefix);
                  result = (m_data[block] >> shift) & m_mask; // Only take bits from the first word
             }
         }
-        fprintf(stderr, "%s EXIT access -> %llu (0x%llX)\n", log_prefix, (unsigned long long)result, (unsigned long long)result);
+        PTHASH_LOG("%s EXIT access -> %llu (0x%llX)\n", log_prefix, (unsigned long long)result, (unsigned long long)result);
         return result;
     }
 
@@ -296,42 +298,42 @@ private:
 
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
-        const char* prefix = "[P3.SAVE.CV]";
+        PTHASH_LOG_VARS(const char* prefix = "[P3.SAVE.CV]");
 
         // Log m_size
-        size_t offset_before_size = visitor.bytes();
-        fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu\n",
+        PTHASH_LOG_VARS(size_t offset_before_size = visitor.bytes());
+        PTHASH_LOG("%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu\n",
                 prefix, "m_size", "uint64_t", sizeof(t.m_size), offset_before_size);
         visitor.visit(t.m_size); // *** ACTUAL CALL ***
-        size_t offset_after_size = visitor.bytes();
-        fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
+        PTHASH_LOG_VARS(size_t offset_after_size = visitor.bytes());
+        PTHASH_LOG("%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
                 prefix, "m_size", offset_after_size - offset_before_size, offset_after_size);
 
         // Log m_width
-        size_t offset_before_width = visitor.bytes();
-        fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu\n",
+        PTHASH_LOG_VARS(size_t offset_before_width = visitor.bytes());
+        PTHASH_LOG("%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu\n",
                 prefix, "m_width", "uint64_t", sizeof(t.m_width), offset_before_width);
         visitor.visit(t.m_width); // *** ACTUAL CALL ***
-        size_t offset_after_width = visitor.bytes();
-        fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
+        PTHASH_LOG_VARS(size_t offset_after_width = visitor.bytes());
+        PTHASH_LOG("%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
                 prefix, "m_width", offset_after_width - offset_before_width, offset_after_width);
 
         // Log m_mask
-        size_t offset_before_mask = visitor.bytes();
-        fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu\n",
+        PTHASH_LOG_VARS(size_t offset_before_mask = visitor.bytes());
+        PTHASH_LOG("%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu\n",
                 prefix, "m_mask", "uint64_t", sizeof(t.m_mask), offset_before_mask);
         visitor.visit(t.m_mask); // *** ACTUAL CALL ***
-        size_t offset_after_mask = visitor.bytes();
-        fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
+        PTHASH_LOG_VARS(size_t offset_after_mask = visitor.bytes());
+        PTHASH_LOG("%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
                 prefix, "m_mask", offset_after_mask - offset_before_mask, offset_after_mask);
 
         // Log m_data (vector)
-        size_t offset_before_data = visitor.bytes();
-        fprintf(stderr, "%s.BEFORE Name: %s, Type: %s, Offset: %zu\n",
+        PTHASH_LOG_VARS(size_t offset_before_data = visitor.bytes());
+        PTHASH_LOG("%s.BEFORE Name: %s, Type: %s, Offset: %zu\n",
                 prefix, "m_data", "std::vector<uint64_t>", offset_before_data);
         visitor.visit(t.m_data); // *** ACTUAL CALL *** (Will trigger vector logging)
-        size_t offset_after_data = visitor.bytes();
-        fprintf(stderr, "%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
+        PTHASH_LOG_VARS(size_t offset_after_data = visitor.bytes());
+        PTHASH_LOG("%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
                 prefix, "m_data", offset_after_data - offset_before_data, offset_after_data);
     }
 };
