@@ -308,6 +308,16 @@ int main(int argc, char** argv) {
                 uint64_t h1 = h.first(); // Used for bucketing
                 uint64_t h2 = h.second(); // Used for displacement
 
+                // DEBUG INSTRUMENTATION: Print internal M values from bucketer
+                __uint128_t m_dense = mphf.get_bucketer().get_M_dense();
+                __uint128_t m_sparse = mphf.get_bucketer().get_M_sparse();
+                
+                fprintf(stderr, "[BUILD_PHF DEBUG] Key=%llu, h1=0x%llx\n", (unsigned long long)key, (unsigned long long)h1);
+                fprintf(stderr, "[BUILD_PHF DEBUG] m_M_dense H=0x%llx L=0x%llx\n", 
+                        (unsigned long long)(m_dense >> 64), (unsigned long long)m_dense);
+                fprintf(stderr, "[BUILD_PHF DEBUG] m_M_sparse H=0x%llx L=0x%llx\n", 
+                        (unsigned long long)(m_sparse >> 64), (unsigned long long)m_sparse);
+                
                 // Store both hashes for clarity, even if they are the same for murmurhash2_64
                 sample_hashes[key_str] = {h1, h2};
                 uint64_t bucket_id = mphf.get_bucketer().bucket(h.first());
