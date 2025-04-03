@@ -237,23 +237,12 @@ struct skew_bucketer {
 private:
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
-        // ======== [P3.SKEW] START ========
-        fprintf(stderr, "[P3.SKEW] ENTER skew_bucketer::visit_impl\n");
-
-        fprintf(stderr, "[P3.SKEW] Visiting m_num_dense_buckets... Type: %s, Value: %llu, Addr: %p, Size: %lu\n", typeid(t.m_num_dense_buckets).name(), (unsigned long long)t.m_num_dense_buckets, (void*)&t.m_num_dense_buckets, sizeof(t.m_num_dense_buckets));
+        //fprintf(stderr, "[P3.SKEW] ENTER skew_bucketer::visit_impl\n");
         visitor.visit(t.m_num_dense_buckets);
-
-        fprintf(stderr, "[P3.SKEW] Visiting m_num_sparse_buckets... Type: %s, Value: %llu, Addr: %p, Size: %lu\n", typeid(t.m_num_sparse_buckets).name(), (unsigned long long)t.m_num_sparse_buckets, (void*)&t.m_num_sparse_buckets, sizeof(t.m_num_sparse_buckets));
         visitor.visit(t.m_num_sparse_buckets);
-
-        fprintf(stderr, "[P3.SKEW] Visiting m_M_num_dense_buckets... Type: %s, Value: %016llx%016llx, Addr: %p, Size: %lu\n", typeid(t.m_M_num_dense_buckets).name(), (unsigned long long)(t.m_M_num_dense_buckets >> 64), (unsigned long long)t.m_M_num_dense_buckets, (void*)&t.m_M_num_dense_buckets, sizeof(t.m_M_num_dense_buckets));
         visitor.visit(t.m_M_num_dense_buckets);
-
-        fprintf(stderr, "[P3.SKEW] Visiting m_M_num_sparse_buckets... Type: %s, Value: %016llx%016llx, Addr: %p, Size: %lu\n", typeid(t.m_M_num_sparse_buckets).name(), (unsigned long long)(t.m_M_num_sparse_buckets >> 64), (unsigned long long)t.m_M_num_sparse_buckets, (void*)&t.m_M_num_sparse_buckets, sizeof(t.m_M_num_sparse_buckets));
         visitor.visit(t.m_M_num_sparse_buckets);
-
-        fprintf(stderr, "[P3.SKEW] EXIT skew_bucketer::visit_impl\n");
-        // ======== [P3.SKEW] END ========
+        //fprintf(stderr, "[P3.SKEW] EXIT skew_bucketer::visit_impl\n");
     }
 
     uint64_t m_num_dense_buckets, m_num_sparse_buckets;

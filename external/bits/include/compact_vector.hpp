@@ -281,23 +281,12 @@ private:
 
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
-        // ======== [P3.CV] START ========
-        fprintf(stderr, "[P3.CV] ENTER compact_vector::visit_impl\n");
-
-        fprintf(stderr, "[P3.CV] Visiting m_size... Type: %s, Value: %llu, Addr: %p, Size: %lu\n", typeid(t.m_size).name(), (unsigned long long)t.m_size, (void*)&t.m_size, sizeof(t.m_size));
+        //fprintf(stderr, "[P3.CV] ENTER compact_vector::visit_impl\n");
         visitor.visit(t.m_size);
-
-        fprintf(stderr, "[P3.CV] Visiting m_width... Type: %s, Value: %llu, Addr: %p, Size: %lu\n", typeid(t.m_width).name(), (unsigned long long)t.m_width, (void*)&t.m_width, sizeof(t.m_width));
         visitor.visit(t.m_width);
-
-        fprintf(stderr, "[P3.CV] Visiting m_mask... Type: %s, Value: %llu, Addr: %p, Size: %lu\n", typeid(t.m_mask).name(), (unsigned long long)t.m_mask, (void*)&t.m_mask, sizeof(t.m_mask));
         visitor.visit(t.m_mask);
-
-        fprintf(stderr, "[P3.CV] Visiting m_data... Type: %s, Addr: %p\n", typeid(t.m_data).name(), (void*)&t.m_data);
         visitor.visit(t.m_data);
-
-        fprintf(stderr, "[P3.CV] EXIT compact_vector::visit_impl\n");
-        // ======== [P3.CV] END ========
+        //fprintf(stderr, "[P3.CV] EXIT compact_vector::visit_impl\n");
     }
 };
 

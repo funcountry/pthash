@@ -225,14 +225,10 @@ struct dictionary {
 private:
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
-        // ======== [P3.DICT] START ========
-        fprintf(stderr, "[P3.DICT] ENTER dictionary::visit_impl\n");
-        fprintf(stderr, "[P3.DICT] Visiting m_ranks... Type: %s, Addr: %p\n", typeid(t.m_ranks).name(), (void*)&t.m_ranks);
+        //fprintf(stderr, "[P3.DICT] ENTER dictionary::visit_impl\n");
         visitor.visit(t.m_ranks);
-        fprintf(stderr, "[P3.DICT] Visiting m_dict... Type: %s, Addr: %p\n", typeid(t.m_dict).name(), (void*)&t.m_dict);
         visitor.visit(t.m_dict);
-        fprintf(stderr, "[P3.DICT] EXIT dictionary::visit_impl\n");
-        // ======== [P3.DICT] END ========
+        //fprintf(stderr, "[P3.DICT] EXIT dictionary::visit_impl\n");
     }
 
     bits::compact_vector m_ranks;
@@ -454,14 +450,10 @@ struct dual {
 private:
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
-         // ======== [P3.DUAL] START ========
-        fprintf(stderr, "[P3.DUAL] ENTER dual::visit_impl\n");
-        fprintf(stderr, "[P3.DUAL] Visiting m_front... Type: %s, Addr: %p\n", typeid(t.m_front).name(), (void*)&t.m_front);
+        //fprintf(stderr, "[P3.DUAL] ENTER dual::visit_impl\n");
         visitor.visit(t.m_front);
-        fprintf(stderr, "[P3.DUAL] Visiting m_back... Type: %s, Addr: %p\n", typeid(t.m_back).name(), (void*)&t.m_back);
         visitor.visit(t.m_back);
-        fprintf(stderr, "[P3.DUAL] EXIT dual::visit_impl\n");
-        // ======== [P3.DUAL] END ========
+        //fprintf(stderr, "[P3.DUAL] EXIT dual::visit_impl\n");
     }
 
     Front m_front;

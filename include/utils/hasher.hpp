@@ -52,6 +52,9 @@ struct byte_range {
         by Austin Appleby
 */
 static uint64_t MurmurHash2_64(void const* key, size_t len, uint64_t seed) {
+    // Added [LP5] entry log
+    fprintf(stderr, "[LP5] ENTER MurmurHash2_64(key=%p, len=%zu, seed=%llu)\n", key, len, (unsigned long long)seed);
+
     const uint64_t m = 0xc6a4a7935bd1e995ULL;
     const int r = 47;
 
@@ -114,6 +117,8 @@ static uint64_t MurmurHash2_64(void const* key, size_t len, uint64_t seed) {
     h *= m;
     h ^= h >> r;
 
+    // Added [LP5] exit log
+    fprintf(stderr, "[LP5] EXIT MurmurHash2_64 -> hash=%llu (0x%llX)\n", (unsigned long long)h, (unsigned long long)h);
     return h;
 }
 

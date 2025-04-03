@@ -238,35 +238,16 @@ struct single_phf  //
 private:
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
-        // ======== [P3.PHF] START ========
-        fprintf(stderr, "[P3.PHF] ENTER single_phf::visit_impl\n");
-
-        fprintf(stderr, "[P3.PHF] Visiting m_seed... Type: %s, Value: %llu, Addr: %p, Size: %lu\n", typeid(t.m_seed).name(), (unsigned long long)t.m_seed, (void*)&t.m_seed, sizeof(t.m_seed));
+        //fprintf(stderr, "[P3.PHF] ENTER single_phf::visit_impl\n");
         visitor.visit(t.m_seed);
-
-        fprintf(stderr, "[P3.PHF] Visiting m_num_keys... Type: %s, Value: %llu, Addr: %p, Size: %lu\n", typeid(t.m_num_keys).name(), (unsigned long long)t.m_num_keys, (void*)&t.m_num_keys, sizeof(t.m_num_keys));
         visitor.visit(t.m_num_keys);
-
-        fprintf(stderr, "[P3.PHF] Visiting m_table_size... Type: %s, Value: %llu, Addr: %p, Size: %lu\n", typeid(t.m_table_size).name(), (unsigned long long)t.m_table_size, (void*)&t.m_table_size, sizeof(t.m_table_size));
         visitor.visit(t.m_table_size);
-
-        fprintf(stderr, "[P3.PHF] Visiting m_M_128... Type: %s, Value: %016llx%016llx, Addr: %p, Size: %lu\n", typeid(t.m_M_128).name(), (unsigned long long)(t.m_M_128 >> 64), (unsigned long long)t.m_M_128, (void*)&t.m_M_128, sizeof(t.m_M_128));
         visitor.visit(t.m_M_128);
-
-        fprintf(stderr, "[P3.PHF] Visiting m_M_64... Type: %s, Value: %llu, Addr: %p, Size: %lu\n", typeid(t.m_M_64).name(), (unsigned long long)t.m_M_64, (void*)&t.m_M_64, sizeof(t.m_M_64));
         visitor.visit(t.m_M_64);
-
-        fprintf(stderr, "[P3.PHF] Visiting m_bucketer... Type: %s, Addr: %p\n", typeid(t.m_bucketer).name(), (void*)&t.m_bucketer);
         visitor.visit(t.m_bucketer);
-
-        fprintf(stderr, "[P3.PHF] Visiting m_pilots... Type: %s, Addr: %p\n", typeid(t.m_pilots).name(), (void*)&t.m_pilots);
         visitor.visit(t.m_pilots);
-
-        fprintf(stderr, "[P3.PHF] Visiting m_free_slots... Type: %s, Addr: %p\n", typeid(t.m_free_slots).name(), (void*)&t.m_free_slots);
         visitor.visit(t.m_free_slots);
-
-        fprintf(stderr, "[P3.PHF] EXIT single_phf::visit_impl\n");
-        // ======== [P3.PHF] END ========
+        //fprintf(stderr, "[P3.PHF] EXIT single_phf::visit_impl\n");
     }
 
     static build_configuration set_build_configuration(build_configuration const& config) {

@@ -332,17 +332,10 @@ protected:
 
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
-        // ======== [P3.BV] START ========
-        fprintf(stderr, "[P3.BV] ENTER bit_vector::visit_impl\n");
-
-        fprintf(stderr, "[P3.BV] Visiting m_num_bits... Type: %s, Value: %llu, Addr: %p, Size: %lu\n", typeid(t.m_num_bits).name(), (unsigned long long)t.m_num_bits, (void*)&t.m_num_bits, sizeof(t.m_num_bits));
+        //fprintf(stderr, "[P3.BV] ENTER bit_vector::visit_impl\n");
         visitor.visit(t.m_num_bits);
-
-        fprintf(stderr, "[P3.BV] Visiting m_data... Type: %s, Addr: %p\n", typeid(t.m_data).name(), (void*)&t.m_data);
         visitor.visit(t.m_data);
-
-        fprintf(stderr, "[P3.BV] EXIT bit_vector::visit_impl\n");
-        // ======== [P3.BV] END ========
+        //fprintf(stderr, "[P3.BV] EXIT bit_vector::visit_impl\n");
     }
 };
 

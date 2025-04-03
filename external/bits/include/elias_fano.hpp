@@ -340,26 +340,13 @@ private:
 
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
-        // ======== [P3.EF] START ========
-        fprintf(stderr, "[P3.EF] ENTER elias_fano::visit_impl\n");
-
-        fprintf(stderr, "[P3.EF] Visiting m_back... Type: %s, Value: %llu, Addr: %p, Size: %lu\n", typeid(t.m_back).name(), (unsigned long long)t.m_back, (void*)&t.m_back, sizeof(t.m_back));
+        //fprintf(stderr, "[P3.EF] ENTER elias_fano::visit_impl\n");
         visitor.visit(t.m_back);
-
-        fprintf(stderr, "[P3.EF] Visiting m_high_bits... Type: %s, Addr: %p\n", typeid(t.m_high_bits).name(), (void*)&t.m_high_bits);
         visitor.visit(t.m_high_bits);
-
-        fprintf(stderr, "[P3.EF] Visiting m_high_bits_d1... Type: %s, Addr: %p\n", typeid(t.m_high_bits_d1).name(), (void*)&t.m_high_bits_d1);
         visitor.visit(t.m_high_bits_d1);
-
-        fprintf(stderr, "[P3.EF] Visiting m_high_bits_d0... Type: %s, Addr: %p\n", typeid(t.m_high_bits_d0).name(), (void*)&t.m_high_bits_d0);
         visitor.visit(t.m_high_bits_d0);
-
-        fprintf(stderr, "[P3.EF] Visiting m_low_bits... Type: %s, Addr: %p\n", typeid(t.m_low_bits).name(), (void*)&t.m_low_bits);
         visitor.visit(t.m_low_bits);
-
-        fprintf(stderr, "[P3.EF] EXIT elias_fano::visit_impl\n");
-        // ======== [P3.EF] END ========
+        //fprintf(stderr, "[P3.EF] EXIT elias_fano::visit_impl\n");
     }
 
     /*

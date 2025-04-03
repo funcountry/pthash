@@ -351,15 +351,31 @@ struct generic_saver {
         if constexpr (is_pod<T>::value) {
             const char* prefix = std::is_fundamental<T>::value ? "[P3.SAVE.FUNDAMENTAL]" : "[P3.SAVE.POD]";
             size_t initial_offset = m_os.tellp();
-            fprintf(stderr, "%s BEFORE Writing: Name: %s, Type: %s, Size: %lu, Addr: %p, Offset: %zu\n",
-                   prefix, "POD_VALUE", typeid(T).name(), sizeof(T), (void*)&val, initial_offset);
+            
+            if constexpr (std::is_same<T, __uint128_t>::value) {
+                // Special handling for __uint128_t
+                uint64_t high = static_cast<uint64_t>(val >> 64);
+                uint64_t low = static_cast<uint64_t>(val);
+                fprintf(stderr, "%s BEFORE Writing: Name: %s, Type: __uint128_t, Size: %lu, High: %llu, Low: %llu, Offset: %zu\n",
+                       prefix, "128BIT_VALUE", sizeof(T), (unsigned long long)high, (unsigned long long)low, initial_offset);
+            } else {
+                fprintf(stderr, "%s BEFORE Writing: Name: %s, Type: %s, Size: %lu, Addr: %p, Offset: %zu\n",
+                       prefix, "POD_VALUE", typeid(T).name(), sizeof(T), (void*)&val, initial_offset);
+            }
 
             save_pod(m_os, val);
 
             size_t final_offset = m_os.tellp();
             size_t bytes_written = final_offset - initial_offset;
-            fprintf(stderr, "%s AFTER Writing: Name: %s, Type: %s, Offset: %zu, Bytes Written: %zu\n",
-                   prefix, "POD_VALUE", typeid(T).name(), final_offset, bytes_written);
+            
+            if constexpr (std::is_same<T, __uint128_t>::value) {
+                // Special handling for __uint128_t in after-write message
+                fprintf(stderr, "%s AFTER Writing: Name: %s, Type: __uint128_t, Offset: %zu, Bytes Written: %zu\n",
+                       prefix, "128BIT_VALUE", final_offset, bytes_written);
+            } else {
+                fprintf(stderr, "%s AFTER Writing: Name: %s, Type: %s, Offset: %zu, Bytes Written: %zu\n",
+                       prefix, "POD_VALUE", typeid(T).name(), final_offset, bytes_written);
+            }
         } else {
             val.visit(*this);
         }
@@ -375,7 +391,7 @@ struct generic_saver {
             fprintf(stderr, "%s BEFORE Writing: Name: %s, Type: %s, Value: %lu, Size: %lu, Addr: %p, Offset: %zu\n",
                    prefix_size, "vector_size", typeid(size_t).name(), (unsigned long)n, sizeof(size_t), (void*)&n, initial_offset_size);
 
-            visit(n);
+            visit(n); // Save the size first
 
             size_t final_offset_size = m_os.tellp();
             size_t bytes_written_size = final_offset_size - initial_offset_size;

@@ -27,8 +27,7 @@
     "**/*.md",
     "**/*.json",
     "**/*.yaml",
-    "**/*.yml",
-    "script/**/*"
+    "**/*.yml"
   ],
   "ignore": {
     "useGitignore": true,
