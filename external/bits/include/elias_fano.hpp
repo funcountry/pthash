@@ -345,7 +345,16 @@ private:
         visitor.visit(t.m_high_bits);
         visitor.visit(t.m_high_bits_d1);
         visitor.visit(t.m_high_bits_d0);
+        
+        // Add detailed logging for m_low_bits (LowBits compact vector) just before serialization
+        fprintf(stderr, "[CV_LOWBITS_SAVE] Pre-Save State: Size=%llu, Width=%llu, Mask=0x%llX, DataSize=%lu\n",
+            (unsigned long long)t.m_low_bits.size(), 
+            (unsigned long long)t.m_low_bits.width(),
+            (unsigned long long)(t.m_low_bits.width() == 64 ? uint64_t(-1) : ((uint64_t(1) << t.m_low_bits.width()) - 1)),
+            (unsigned long)t.m_low_bits.data().size());
+            
         visitor.visit(t.m_low_bits);
+        fprintf(stderr, "[CV_LOWBITS_SAVE] Finished visiting m_low_bits\n");
         //fprintf(stderr, "[P3.EF] EXIT elias_fano::visit_impl\n");
     }
 
