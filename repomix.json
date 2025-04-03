@@ -1,33 +1,34 @@
 {
   "output": {
-    "filePath": "repomix-output.txt",
-    "style": "plain",
+    "filePath": "pthash.md",
+    "style": "markdown",
     "parsableStyle": false,
     "fileSummary": true,
     "directoryStructure": true,
     "removeComments": false,
     "removeEmptyLines": false,
-    "topFilesLength": 100,
-    "showLineNumbers": false,
+    "topFilesLength": 30,
+    "showLineNumbers": true,
     "copyToClipboard": true
   },
   "include": [
-    "**/*.cpp",
-    "**/*.hpp",
-    "**/*.c",
-    "**/*.h",
-    "**/*.cc",
-    "**/*.cxx",
-    "**/*.py",
-    "**/*.sh",
-    "**/*.bash",
-    "**/Makefile",
-    "**/CMakeLists.txt",
-    "**/*.cmake",
-    "**/*.md",
-    "**/*.json",
-    "**/*.yaml",
-    "**/*.yml"
+    "src/build_phf.cpp",
+    "src/test_fastmod.cpp",
+    "include/pthash.hpp",
+    "include/single_phf.hpp",
+    "include/partitioned_phf.hpp",
+    "src/util.hpp",
+    "include/utils/hasher.hpp",
+    "include/utils/util.hpp",
+    "include/utils/encoders.hpp",
+    "include/utils/bucketers.hpp",
+    "external/bits/include/elias_fano.hpp",
+    "external/bits/include/bit_vector.hpp",
+    "external/bits/include/compact_vector.hpp",
+    "external/bits/external/essentials/include/essentials.hpp",
+    "external/fastmod/include/fastmod.h",
+    "README_build_phf.md",
+    "CMakeLists.txt"
   ],
   "ignore": {
     "useGitignore": true,
@@ -63,4 +64,4 @@
   "tokenCount": {
     "encoding": "o200k_base"
   }
-}
+} 
