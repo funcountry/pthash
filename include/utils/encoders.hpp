@@ -191,14 +191,14 @@ struct dictionary {
     }
 
     uint64_t access(uint64_t i) const {
-        fprintf(stderr, "[P6.DICT] ENTER dictionary::access(i=%llu)\n", (unsigned long long)i);
-        fprintf(stderr, "[P6.DICT]   Calling m_ranks.access(%llu)...\n", (unsigned long long)i);
+        PTHASH_LOG("[P6.DICT] ENTER dictionary::access(i=%llu)\n", (unsigned long long)i);
+        PTHASH_LOG("[P6.DICT]   Calling m_ranks.access(%llu)...\n", (unsigned long long)i);
         uint64_t rank = m_ranks.access(i);
-        fprintf(stderr, "[P6.DICT]   m_ranks.access returned rank: %llu\n", (unsigned long long)rank);
-        fprintf(stderr, "[P6.DICT]   Calling m_dict.access(rank=%llu)...\n", (unsigned long long)rank);
+        PTHASH_LOG("[P6.DICT]   m_ranks.access returned rank: %llu\n", (unsigned long long)rank);
+        PTHASH_LOG("[P6.DICT]   Calling m_dict.access(rank=%llu)...\n", (unsigned long long)rank);
         uint64_t pilot = m_dict.access(rank);
-        fprintf(stderr, "[P6.DICT]   m_dict.access returned value (pilot): %llu\n", (unsigned long long)pilot);
-        fprintf(stderr, "[P6.DICT] EXIT dictionary::access -> %llu\n", (unsigned long long)pilot);
+        PTHASH_LOG("[P6.DICT]   m_dict.access returned value (pilot): %llu\n", (unsigned long long)pilot);
+        PTHASH_LOG("[P6.DICT] EXIT dictionary::access -> %llu\n", (unsigned long long)pilot);
         return pilot;
     }
 
@@ -225,10 +225,10 @@ struct dictionary {
 private:
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
-        //fprintf(stderr, "[P3.DICT] ENTER dictionary::visit_impl\n");
+        //PTHASH_LOG("[P3.DICT] ENTER dictionary::visit_impl\n");
         visitor.visit(t.m_ranks);
         visitor.visit(t.m_dict);
-        //fprintf(stderr, "[P3.DICT] EXIT dictionary::visit_impl\n");
+        //PTHASH_LOG("[P3.DICT] EXIT dictionary::visit_impl\n");
     }
 
     bits::compact_vector m_ranks;
@@ -409,22 +409,22 @@ struct dual {
     }
 
     uint64_t access(uint64_t i) const {
-        fprintf(stderr, "[P6.DUAL] ENTER dual::access(i=%llu)\n", (unsigned long long)i);
-        fprintf(stderr, "[P6.DUAL]   Accessing m_front.size()...\n");
+        PTHASH_LOG("[P6.DUAL] ENTER dual::access(i=%llu)\n", (unsigned long long)i);
+        PTHASH_LOG("[P6.DUAL]   Accessing m_front.size()...\n");
         uint64_t front_size = m_front.size();
-        fprintf(stderr, "[P6.DUAL]   m_front.size() = %llu\n", (unsigned long long)front_size);
-        fprintf(stderr, "[P6.DUAL]   Checking if i (%llu) < front_size (%llu)\n", (unsigned long long)i, (unsigned long long)front_size);
+        PTHASH_LOG("[P6.DUAL]   m_front.size() = %llu\n", (unsigned long long)front_size);
+        PTHASH_LOG("[P6.DUAL]   Checking if i (%llu) < front_size (%llu)\n", (unsigned long long)i, (unsigned long long)front_size);
         uint64_t result;
         if (i < front_size) {
-             fprintf(stderr, "[P6.DUAL]   Taking FRONT branch with index=%llu\n", (unsigned long long)i);
+             PTHASH_LOG("[P6.DUAL]   Taking FRONT branch with index=%llu\n", (unsigned long long)i);
              result = m_front.access(i);
         } else {
             uint64_t back_index = i - front_size;
-            fprintf(stderr, "[P6.DUAL]   Taking BACK branch with index=%llu (i - front_size = %llu - %llu)\n", 
+            PTHASH_LOG("[P6.DUAL]   Taking BACK branch with index=%llu (i - front_size = %llu - %llu)\n", 
                    (unsigned long long)back_index, (unsigned long long)i, (unsigned long long)front_size);
             result = m_back.access(back_index);
         }
-        fprintf(stderr, "[P6.DUAL] EXIT dual::access -> %llu\n", (unsigned long long)result);
+        PTHASH_LOG("[P6.DUAL] EXIT dual::access -> %llu\n", (unsigned long long)result);
         return result;
     }
 
@@ -451,10 +451,10 @@ struct dual {
 private:
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
-        //fprintf(stderr, "[P3.DUAL] ENTER dual::visit_impl\n");
+        //PTHASH_LOG("[P3.DUAL] ENTER dual::visit_impl\n");
         visitor.visit(t.m_front);
         visitor.visit(t.m_back);
-        //fprintf(stderr, "[P3.DUAL] EXIT dual::visit_impl\n");
+        //PTHASH_LOG("[P3.DUAL] EXIT dual::visit_impl\n");
     }
 
     Front m_front;

@@ -95,15 +95,16 @@ struct internal_memory_builder_single_phf {
             map(hashes, num_keys, pairs_blocks, config);
             auto elapsed = to_microseconds(clock_type::now() - start);
             if (config.verbose) {
-                std::cout << " == map+sort took: " << elapsed / 1000000 << " seconds" << std::endl;
+                std::cout << " == map+sort took: " << elapsed / 1000000 << " seconds";
+                std::cout << " (using " << config.num_threads << " threads)" << std::endl;
             }
 
             start = clock_type::now();
-            merge(pairs_blocks, buckets, config.verbose);
+            merge(pairs_blocks, buckets, config.verbose, config.num_threads);
             elapsed = to_microseconds(clock_type::now() - start);
             if (config.verbose) {
-                std::cout << " == merge+check took: " << elapsed / 1000000 << " seconds"
-                          << std::endl;
+                std::cout << " == merge+check took: " << elapsed / 1000000 << " seconds";
+                std::cout << " (sequential implementation - multithreading not yet supported)" << std::endl;
             }
         }
 

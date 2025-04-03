@@ -291,7 +291,9 @@ void merge_multiple_blocks(std::vector<Pairs> const& pairs_blocks, Merger& merge
 }
 
 template <typename Pairs, typename Merger>
-void merge(std::vector<Pairs> const& pairs_blocks, Merger& merger, bool verbose) {
+void merge(std::vector<Pairs> const& pairs_blocks, Merger& merger, bool verbose, uint64_t num_threads = 1) {
+    // Always use single-threaded merge for now, since the parallel version has issues with non-copyable types
+    (void)num_threads; // Mark as unused to avoid compiler warnings
     if (pairs_blocks.size() == 1) {
         merge_single_block(pairs_blocks[0], merger, verbose);
     } else {

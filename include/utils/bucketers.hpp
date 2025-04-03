@@ -5,6 +5,7 @@
 
 #include "utils/util.hpp"
 #include "fastmod.h" // Include fastmod for logging usage
+#include "utils/instrumentation.hpp" // Added for PTHASH_LOG
 
 namespace pthash {
 
@@ -163,30 +164,32 @@ struct skew_bucketer {
     }
 
     inline uint64_t bucket(uint64_t hash) const {
-        fprintf(stderr, "[LP5] ENTER skew_bucketer::bucket(hash=h1=%llu)\n", (unsigned long long)hash);
-        static const double a_double = constants::a;
+        PTHASH_LOG("[LP5] ENTER skew_bucketer::bucket(hash=h1=%llu)\n", (unsigned long long)hash);
         static const uint64_t T = constants::a * static_cast<double>(UINT64_MAX);
-        fprintf(stderr, "[LP5]   Threshold T = %llu (derived from %.17g)\n", (unsigned long long)T, a_double);
+#ifdef PTHASH_INSTRUMENTED
+        static const double a_double = constants::a;
+        PTHASH_LOG("[LP5]   Threshold T = %llu (derived from %.17g)\n", (unsigned long long)T, a_double);
+#endif
 
         uint64_t bucket_id;
         if (hash < T) {
-            fprintf(stderr, "[LP5]   Comparing hash < T: %llu < %llu -> true (dense)\n", (unsigned long long)hash, (unsigned long long)T);
-            fprintf(stderr, "[LP5]   Using dense path.\n");
-            fprintf(stderr, "[LP5]   Calling fastmod_u64(hash=%llu, M_dense=0x%016llX%016llX, num_dense=%llu)\n",
+            PTHASH_LOG("[LP5]   Comparing hash < T: %llu < %llu -> true (dense)\n", (unsigned long long)hash, (unsigned long long)T);
+            PTHASH_LOG("[LP5]   Using dense path.\n");
+            PTHASH_LOG("[LP5]   Calling fastmod_u64(hash=%llu, M_dense=0x%016llX%016llX, num_dense=%llu)\n",
                     (unsigned long long)hash, (unsigned long long)(m_M_num_dense_buckets >> 64), (unsigned long long)m_M_num_dense_buckets, (unsigned long long)m_num_dense_buckets);
             bucket_id = fastmod::fastmod_u64(hash, m_M_num_dense_buckets, m_num_dense_buckets);
-             fprintf(stderr, "[LP5]   fastmod_u64 result (dense) = %llu\n", (unsigned long long)bucket_id);
+            PTHASH_LOG("[LP5]   fastmod_u64 result (dense) = %llu\n", (unsigned long long)bucket_id);
         } else {
-            fprintf(stderr, "[LP5]   Comparing hash < T: %llu < %llu -> false (sparse)\n", (unsigned long long)hash, (unsigned long long)T);
-            fprintf(stderr, "[LP5]   Using sparse path.\n");
-             fprintf(stderr, "[LP5]   Calling fastmod_u64(hash=%llu, M_sparse=0x%016llX%016llX, num_sparse=%llu)\n",
+            PTHASH_LOG("[LP5]   Comparing hash < T: %llu < %llu -> false (sparse)\n", (unsigned long long)hash, (unsigned long long)T);
+            PTHASH_LOG("[LP5]   Using sparse path.\n");
+            PTHASH_LOG("[LP5]   Calling fastmod_u64(hash=%llu, M_sparse=0x%016llX%016llX, num_sparse=%llu)\n",
                      (unsigned long long)hash, (unsigned long long)(m_M_num_sparse_buckets >> 64), (unsigned long long)m_M_num_sparse_buckets, (unsigned long long)m_num_sparse_buckets);
             uint64_t sparse_mod = fastmod::fastmod_u64(hash, m_M_num_sparse_buckets, m_num_sparse_buckets);
-            fprintf(stderr, "[LP5]   fastmod_u64 result (sparse_mod) = %llu\n", (unsigned long long)sparse_mod);
-             fprintf(stderr, "[LP5]   Adding num_dense = %llu\n", (unsigned long long)m_num_dense_buckets);
+            PTHASH_LOG("[LP5]   fastmod_u64 result (sparse_mod) = %llu\n", (unsigned long long)sparse_mod);
+            PTHASH_LOG("[LP5]   Adding num_dense = %llu\n", (unsigned long long)m_num_dense_buckets);
             bucket_id = m_num_dense_buckets + sparse_mod;
         }
-        fprintf(stderr, "[LP5] EXIT skew_bucketer::bucket -> bucket_id=%llu\n", (unsigned long long)bucket_id);
+        PTHASH_LOG("[LP5] EXIT skew_bucketer::bucket -> bucket_id=%llu\n", (unsigned long long)bucket_id);
         return bucket_id;
     }
 

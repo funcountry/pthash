@@ -1,12 +1,31 @@
 #pragma once
 
-#include <algorithm>
-#include <vector>
-#include <cassert>
-
 #include "util.hpp"
 #include "bit_vector.hpp"
-#include "utils/instrumentation.hpp"
+#include <cstdio> // For fprintf, stderr etc.
+
+// Define PTHASH_LOG if not already defined
+#ifndef PTHASH_LOG
+#ifdef PTHASH_ENABLE_INSTRUMENTATION
+#define PTHASH_LOG(...) fprintf(stderr, __VA_ARGS__)
+#else
+#define PTHASH_LOG(...) do {} while (0)
+#endif
+#endif
+
+// Inline definition of instrumentation_context
+namespace instrumentation_context {
+    inline thread_local const char* current_prefix = nullptr;
+
+    struct prefix_setter {
+        prefix_setter(const char* prefix) { current_prefix = prefix; }
+        ~prefix_setter() { current_prefix = nullptr; }
+    };
+
+    inline const char* get_prefix(const char* default_prefix = "[DEFAULT]") {
+        return current_prefix ? current_prefix : default_prefix;
+    }
+}
 
 namespace bits {
 
@@ -97,66 +116,150 @@ struct darray {
         for any 0 <= i < num_positions();
     */
     inline uint64_t select(bit_vector const& B, uint64_t i) const {
-        PTHASH_LOG("%s ENTER select(i=%llu)\n", P8_LOG_PREFIX, (unsigned long long)i);
+        // *** START VANILLA INSTRUMENTATION ***
+        const char* log_prefix = "[V_SELECT]";
+        fprintf(stderr, "%s ENTER select(i=%llu)\n", log_prefix, (unsigned long long)i);
+        // *** END VANILLA INSTRUMENTATION ***
+
         assert(i < num_positions());
-        
         uint64_t block = i / block_size;
+        // *** START VANILLA INSTRUMENTATION ***
+        fprintf(stderr, "%s  Calculated block = %llu (i=%llu / block_size=%llu)\n", log_prefix, (unsigned long long)block, (unsigned long long)i, (unsigned long long)block_size);
+        if (block >= m_block_inventory.size()) {
+            fprintf(stderr, "%s  ERROR: block index %llu out of bounds (inventory size %zu)\n", log_prefix, (unsigned long long)block, m_block_inventory.size());
+            fprintf(stderr, "%s EXIT select (error) -> returning 0\n", log_prefix);
+            return 0; // Or appropriate error handling
+        }
+        // *** END VANILLA INSTRUMENTATION ***
+
         int64_t block_pos = m_block_inventory[block];
-        PTHASH_LOG("%s   block=%llu, block_pos=%lld\n", P8_LOG_PREFIX, (unsigned long long)block, (long long)block_pos);
-        
+        // *** START VANILLA INSTRUMENTATION ***
+        fprintf(stderr, "%s  Looked up block_pos = m_block_inventory[%llu] = %lld\n", log_prefix, (unsigned long long)block, (long long)block_pos);
+        // *** END VANILLA INSTRUMENTATION ***
+
         if (block_pos < 0) {  // sparse super-block
+            // *** START VANILLA INSTRUMENTATION ***
+            fprintf(stderr, "%s  Block is SPARSE (block_pos < 0)\n", log_prefix);
+            // *** END VANILLA INSTRUMENTATION ***
             uint64_t overflow_pos = uint64_t(-block_pos - 1);
-            uint64_t idx = overflow_pos + (i & (block_size - 1));
-            uint64_t result = m_overflow_positions[idx];
-            PTHASH_LOG("%s   SPARSE BLOCK: overflow_pos=%llu, idx=%llu, result=%llu\n", 
-                    P8_LOG_PREFIX, (unsigned long long)overflow_pos, (unsigned long long)idx, (unsigned long long)result);
-            PTHASH_LOG("%s EXIT select -> %llu (sparse block)\n", P8_LOG_PREFIX, (unsigned long long)result);
+            uint64_t index_in_block = i & (block_size - 1);
+            uint64_t final_overflow_idx = overflow_pos + index_in_block;
+            // *** START VANILLA INSTRUMENTATION ***
+            fprintf(stderr, "%s    Calculated overflow_pos = %llu\n", log_prefix, (unsigned long long)overflow_pos);
+            fprintf(stderr, "%s    Calculated index_in_block = %llu (i & (block_size - 1))\n", log_prefix, (unsigned long long)index_in_block);
+            fprintf(stderr, "%s    Target overflow index = %llu\n", log_prefix, (unsigned long long)final_overflow_idx);
+            if (final_overflow_idx >= m_overflow_positions.size()) {
+                 fprintf(stderr, "%s    ERROR: final overflow index %llu out of bounds (overflow size %zu)\n", log_prefix, (unsigned long long)final_overflow_idx, m_overflow_positions.size());
+                 fprintf(stderr, "%s EXIT select (sparse error) -> returning 0\n", log_prefix);
+                 return 0; 
+            }
+            // *** END VANILLA INSTRUMENTATION ***
+            uint64_t result = m_overflow_positions[final_overflow_idx];
+            // *** START VANILLA INSTRUMENTATION ***
+            fprintf(stderr, "%s    Result from m_overflow_positions[%llu] = %llu\n", log_prefix, (unsigned long long)final_overflow_idx, (unsigned long long)result);
+            fprintf(stderr, "%s EXIT select (sparse) -> %llu\n", log_prefix, (unsigned long long)result);
+            // *** END VANILLA INSTRUMENTATION ***
             return result;
         }
 
+        // *** START VANILLA INSTRUMENTATION ***
+        fprintf(stderr, "%s  Block is DENSE (block_pos >= 0)\n", log_prefix);
+        // *** END VANILLA INSTRUMENTATION ***
         uint64_t subblock = i / subblock_size;
-        uint64_t subblock_offset = m_subblock_inventory[subblock];
-        uint64_t start_pos = uint64_t(block_pos) + subblock_offset;
+        // *** START VANILLA INSTRUMENTATION ***
+        fprintf(stderr, "%s    Calculated subblock = %llu (i=%llu / subblock_size=%llu)\n", log_prefix, (unsigned long long)subblock, (unsigned long long)i, (unsigned long long)subblock_size);
+        if (subblock >= m_subblock_inventory.size()) {
+            fprintf(stderr, "%s    ERROR: subblock index %llu out of bounds (inventory size %zu)\n", log_prefix, (unsigned long long)subblock, m_subblock_inventory.size());
+            fprintf(stderr, "%s EXIT select (error) -> returning 0\n", log_prefix);
+            return 0; // Or appropriate error handling
+        }
+        // *** END VANILLA INSTRUMENTATION ***
+
+        uint64_t start_pos = uint64_t(block_pos) + m_subblock_inventory[subblock];
+        // *** START VANILLA INSTRUMENTATION ***
+        fprintf(stderr, "%s    Looked up subblock offset = m_subblock_inventory[%llu] = %hu\n", log_prefix, (unsigned long long)subblock, m_subblock_inventory[subblock]);
+        fprintf(stderr, "%s    Calculated start_pos = %llu (block_pos %llu + offset %hu)\n", log_prefix, (unsigned long long)start_pos, (unsigned long long)block_pos, m_subblock_inventory[subblock]);
+        // *** END VANILLA INSTRUMENTATION ***
+
         uint64_t reminder = i & (subblock_size - 1);
-        
-        PTHASH_LOG("%s   DENSE BLOCK: subblock=%llu, subblock_offset=%llu, start_pos=%llu, reminder=%llu\n", 
-                P8_LOG_PREFIX, (unsigned long long)subblock, (unsigned long long)subblock_offset, 
-                (unsigned long long)start_pos, (unsigned long long)reminder);
-        
+        // *** START VANILLA INSTRUMENTATION ***
+        fprintf(stderr, "%s    Calculated reminder = %llu (i & (subblock_size - 1))\n", log_prefix, (unsigned long long)reminder);
+        // *** END VANILLA INSTRUMENTATION ***
+
         if (!reminder) {
-            PTHASH_LOG("%s EXIT select -> %llu (exact subblock)\n", P8_LOG_PREFIX, (unsigned long long)start_pos);
+            // *** START VANILLA INSTRUMENTATION ***
+            fprintf(stderr, "%s    Reminder is 0, returning start_pos directly.\n", log_prefix);
+            fprintf(stderr, "%s EXIT select (dense, reminder=0) -> %llu\n", log_prefix, (unsigned long long)start_pos);
+            // *** END VANILLA INSTRUMENTATION ***
             return start_pos;
         }
 
+        // *** START VANILLA INSTRUMENTATION ***
+        fprintf(stderr, "%s    Reminder > 0, scanning forward from start_pos %llu\n", log_prefix, (unsigned long long)start_pos);
+        // *** END VANILLA INSTRUMENTATION ***
         std::vector<uint64_t> const& data = B.data();
         uint64_t word_idx = start_pos >> 6;
         uint64_t word_shift = start_pos & 63;
-        uint64_t word = WordGetter()(data, word_idx) & (uint64_t(-1) << word_shift);
-        
-        PTHASH_LOG("%s   SCANNING: word_idx=%llu, word_shift=%llu, initial_word=0x%llx\n", 
-                P8_LOG_PREFIX, (unsigned long long)word_idx, (unsigned long long)word_shift, (unsigned long long)word);
-        
-        PTHASH_LOG_VARS(uint64_t popcnt_debug = 0);
-        while (true) {
-            uint64_t popcnt = util::popcount(word);
-            PTHASH_LOG_VARS(popcnt_debug = popcnt);
-            PTHASH_LOG("%s   SCANNING: word=0x%llx, popcnt=%llu, reminder=%llu\n", 
-                    P8_LOG_PREFIX, (unsigned long long)word, (unsigned long long)popcnt, (unsigned long long)reminder);
-            
-            if (reminder < popcnt) break;
-            reminder -= popcnt;
-            word = WordGetter()(data, ++word_idx);
+        // *** START VANILLA INSTRUMENTATION ***
+        fprintf(stderr, "%s      Initial word_idx = %llu, word_shift = %llu\n", log_prefix, (unsigned long long)word_idx, (unsigned long long)word_shift);
+        if (word_idx >= data.size()) {
+            fprintf(stderr, "%s      ERROR: initial word_idx %llu out of bounds (data size %zu)\n", log_prefix, (unsigned long long)word_idx, data.size());
+            fprintf(stderr, "%s EXIT select (error) -> returning 0\n", log_prefix);
+            return 0;
         }
-        
-        uint64_t select_in_word_result = util::select_in_word(word, reminder);
-        uint64_t final_result = (word_idx << 6) + select_in_word_result;
-        
-        PTHASH_LOG("%s   FOUND: word_idx=%llu, popcnt=%llu, select_in_word=%llu, final=%llu\n", 
-                P8_LOG_PREFIX, (unsigned long long)word_idx, (unsigned long long)popcnt_debug, 
-                (unsigned long long)select_in_word_result, (unsigned long long)final_result);
-        
-        PTHASH_LOG("%s EXIT select -> %llu\n", P8_LOG_PREFIX, (unsigned long long)final_result);
-        return final_result;
+        // *** END VANILLA INSTRUMENTATION ***
+
+        uint64_t word = WordGetter()(data, word_idx) & (uint64_t(-1) << word_shift);
+        // *** START VANILLA INSTRUMENTATION ***
+        uint64_t original_first_word = WordGetter()(data, word_idx);
+        fprintf(stderr, "%s      First word raw (data[%llu]) = 0x%llX\n", log_prefix, (unsigned long long)word_idx, (unsigned long long)original_first_word);
+        fprintf(stderr, "%s      First word masked (>> %llu) = 0x%llX\n", log_prefix, (unsigned long long)word_shift, (unsigned long long)word);
+        uint64_t loop_count = 0;
+        // *** END VANILLA INSTRUMENTATION ***
+
+        while (true) {
+            // *** START VANILLA INSTRUMENTATION ***
+            loop_count++;
+            if (loop_count > (B.num_bits() / 64 + 2)) { // Safety break
+                 fprintf(stderr, "%s      ERROR: Scan loop exceeded safety limit (%llu iterations)!\n", log_prefix, (unsigned long long)loop_count);
+                 fprintf(stderr, "%s EXIT select (error) -> returning 0\n", log_prefix);
+                 return 0;
+            }
+            // *** END VANILLA INSTRUMENTATION ***
+            uint64_t popcnt = util::popcount(word);
+            // *** START VANILLA INSTRUMENTATION ***
+            fprintf(stderr, "%s      Loop %llu: word=0x%llX, popcnt=%llu, current reminder=%llu\n", log_prefix, (unsigned long long)loop_count, (unsigned long long)word, (unsigned long long)popcnt, (unsigned long long)reminder);
+            // *** END VANILLA INSTRUMENTATION ***
+            if (reminder < popcnt) {
+                 // *** START VANILLA INSTRUMENTATION ***
+                 fprintf(stderr, "%s        Reminder %llu < popcnt %llu, break loop.\n", log_prefix, (unsigned long long)reminder, (unsigned long long)popcnt);
+                 // *** END VANILLA INSTRUMENTATION ***
+                 break;
+            }
+            reminder -= popcnt;
+            word_idx++;
+            // *** START VANILLA INSTRUMENTATION ***
+            fprintf(stderr, "%s        Reminder >= popcnt, reminder becomes %llu. Increment word_idx to %llu.\n", log_prefix, (unsigned long long)reminder, (unsigned long long)word_idx);
+            if (word_idx >= data.size()) {
+                fprintf(stderr, "%s        ERROR: next word_idx %llu out of bounds (data size %zu)!\n", log_prefix, (unsigned long long)word_idx, data.size());
+                fprintf(stderr, "%s EXIT select (error) -> returning 0\n", log_prefix);
+                return 0;
+            }
+            // *** END VANILLA INSTRUMENTATION ***
+            word = WordGetter()(data, word_idx);
+        }
+
+        // *** START VANILLA INSTRUMENTATION ***
+        fprintf(stderr, "%s      Loop finished. Final word_idx=%llu, word=0x%llX, reminder=%llu\n", log_prefix, (unsigned long long)word_idx, (unsigned long long)word, (unsigned long long)reminder);
+        fprintf(stderr, "%s      Calling util::select_in_word(0x%llX, %llu)...\n", log_prefix, (unsigned long long)word, (unsigned long long)reminder);
+        // *** END VANILLA INSTRUMENTATION ***
+        uint64_t pos_in_word = util::select_in_word(word, reminder);
+        uint64_t result = (word_idx << 6) + pos_in_word;
+        // *** START VANILLA INSTRUMENTATION ***
+        fprintf(stderr, "%s      select_in_word returned %llu\n", log_prefix, (unsigned long long)pos_in_word);
+        fprintf(stderr, "%s EXIT select (dense) -> %llu ((word_idx %llu << 6) + pos_in_word %llu)\n", log_prefix, (unsigned long long)result, (unsigned long long)word_idx, (unsigned long long)pos_in_word);
+        // *** END VANILLA INSTRUMENTATION ***
+        return result;
     }
 
     inline uint64_t num_positions() const { return m_positions; }
@@ -184,6 +287,22 @@ struct darray {
         visit_impl(visitor, *this);
     }
 
+    // *** START TEMPORARY PUBLIC GETTERS FOR TESTING ***
+    public:
+        const std::vector<int64_t>& getBlockInventory() const {
+            return m_block_inventory;
+        }
+        const std::vector<uint16_t>& getSubblockInventory() const {
+            return m_subblock_inventory;
+        }
+        const std::vector<uint64_t>& getOverflowPositions() const {
+             return m_overflow_positions;
+        }
+        uint64_t getNumPositions() const {
+            return m_positions;
+        }
+    // *** END TEMPORARY PUBLIC GETTERS FOR TESTING ***
+
 protected:
     uint64_t m_positions;
     std::vector<int64_t> m_block_inventory;
@@ -192,43 +311,68 @@ protected:
 
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
-        PTHASH_LOG_VARS(const char* prefix = "[P3.SAVE.DARRAY]");
+        // *** ADDED INSTRUMENTATION START ***
+        // Use a context-dependent prefix set by the caller (elias_fano)
+        const char* darray_prefix = instrumentation_context::get_prefix("[DARRAY_VISIT_UNKNOWN]");
 
         // Log m_positions
-        PTHASH_LOG_VARS(size_t offset_before_positions = visitor.bytes());
-        PTHASH_LOG("%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu\n",
-                prefix, "m_positions", "uint64_t", sizeof(t.m_positions), offset_before_positions);
+        PTHASH_LOG("%s.POSITIONS.BEFORE Value: %llu, Offset: %zu\n",
+                darray_prefix, (unsigned long long)t.m_positions, (size_t)visitor.bytes());
         visitor.visit(t.m_positions);
-        PTHASH_LOG_VARS(size_t offset_after_positions = visitor.bytes());
-        PTHASH_LOG("%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
-                prefix, "m_positions", offset_after_positions - offset_before_positions, offset_after_positions);
+        PTHASH_LOG("%s.POSITIONS.AFTER Offset: %zu\n",
+                darray_prefix, (size_t)visitor.bytes());
 
         // Log m_block_inventory
-        PTHASH_LOG_VARS(size_t offset_before_block_inv = visitor.bytes());
-        PTHASH_LOG("%s.BEFORE Name: %s, Type: %s, Offset: %zu\n",
-                prefix, "m_block_inventory", "std::vector<int64_t>", offset_before_block_inv);
-        visitor.visit(t.m_block_inventory);
-        PTHASH_LOG_VARS(size_t offset_after_block_inv = visitor.bytes());
-        PTHASH_LOG("%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
-                prefix, "m_block_inventory", offset_after_block_inv - offset_before_block_inv, offset_after_block_inv);
+        PTHASH_LOG("%s.BLOCK_INV.BEFORE Size: %lu, Offset: %zu\n",
+                darray_prefix, (unsigned long)t.m_block_inventory.size(), (size_t)visitor.bytes());
+#ifdef PTHASH_ENABLE_INSTRUMENTATION // Only loop if instrumentation is on
+        for(size_t i = 0; i < t.m_block_inventory.size(); ++i) {
+            // Log as signed int64_t as per the type definition
+            PTHASH_LOG("%s.BLOCK_INV_DATA[%zu]=%lld\n",
+                    darray_prefix, i, (long long)t.m_block_inventory[i]);
+        }
+#endif
+        visitor.visit(t.m_block_inventory); // This will log size + data via vector visitor
+        PTHASH_LOG("%s.BLOCK_INV.AFTER Offset: %zu\n",
+                darray_prefix, (size_t)visitor.bytes());
+
 
         // Log m_subblock_inventory
-        PTHASH_LOG_VARS(size_t offset_before_subblock_inv = visitor.bytes());
-        PTHASH_LOG("%s.BEFORE Name: %s, Type: %s, Offset: %zu\n",
-                prefix, "m_subblock_inventory", "std::vector<uint16_t>", offset_before_subblock_inv);
-        visitor.visit(t.m_subblock_inventory);
-        PTHASH_LOG_VARS(size_t offset_after_subblock_inv = visitor.bytes());
-        PTHASH_LOG("%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
-                prefix, "m_subblock_inventory", offset_after_subblock_inv - offset_before_subblock_inv, offset_after_subblock_inv);
+        PTHASH_LOG("%s.SUBBLOCK_INV.BEFORE Size: %lu, Offset: %zu\n",
+                darray_prefix, (unsigned long)t.m_subblock_inventory.size(), (size_t)visitor.bytes());
+#ifdef PTHASH_ENABLE_INSTRUMENTATION // Only loop if instrumentation is on
+        for(size_t i = 0; i < t.m_subblock_inventory.size(); ++i) {
+            // Log as unsigned uint16_t
+            PTHASH_LOG("%s.SUBBLOCK_INV_DATA[%zu]=%hu\n",
+                    darray_prefix, i, (unsigned short)t.m_subblock_inventory[i]);
+        }
+#endif
+        visitor.visit(t.m_subblock_inventory); // This will log size + data via vector visitor
+        PTHASH_LOG("%s.SUBBLOCK_INV.AFTER Offset: %zu\n",
+                darray_prefix, (size_t)visitor.bytes());
 
         // Log m_overflow_positions
-        PTHASH_LOG_VARS(size_t offset_before_overflow = visitor.bytes());
-        PTHASH_LOG("%s.BEFORE Name: %s, Type: %s, Offset: %zu\n",
-                prefix, "m_overflow_positions", "std::vector<uint64_t>", offset_before_overflow);
+        PTHASH_LOG("%s.OVERFLOW_POS.BEFORE Size: %lu, Offset: %zu\n",
+                darray_prefix, (unsigned long)t.m_overflow_positions.size(), (size_t)visitor.bytes());
+#ifdef PTHASH_ENABLE_INSTRUMENTATION // Only loop if instrumentation is on
+        for(size_t i = 0; i < t.m_overflow_positions.size(); ++i) {
+            // Log as unsigned uint64_t
+            PTHASH_LOG("%s.OVERFLOW_POS_DATA[%zu]=%llu\n",
+                    darray_prefix, i, (unsigned long long)t.m_overflow_positions[i]);
+        }
+#endif
+        visitor.visit(t.m_overflow_positions); // This will log size + data via vector visitor
+        PTHASH_LOG("%s.OVERFLOW_POS.AFTER Offset: %zu\n",
+                darray_prefix, (size_t)visitor.bytes());
+
+        // *** ADDED INSTRUMENTATION END ***
+
+        /* Original code was likely just this:
+        visitor.visit(t.m_positions);
+        visitor.visit(t.m_block_inventory);
+        visitor.visit(t.m_subblock_inventory);
         visitor.visit(t.m_overflow_positions);
-        PTHASH_LOG_VARS(size_t offset_after_overflow = visitor.bytes());
-        PTHASH_LOG("%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
-                prefix, "m_overflow_positions", offset_after_overflow - offset_before_overflow, offset_after_overflow);
+        */
     }
 
     static void flush_cur_block(std::vector<uint64_t>& cur_block_positions,
@@ -254,9 +398,6 @@ protected:
         }
         cur_block_positions.clear();
     }
-
-    // Use a detailed log prefix for debug output in Phase 8
-    const char* P8_LOG_PREFIX = "[P8.D1_SELECT]";
 };
 
 namespace util {

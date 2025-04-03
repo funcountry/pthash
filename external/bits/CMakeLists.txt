@@ -10,6 +10,7 @@ if (NOT TARGET BITS)
   add_library(BITS INTERFACE)
   target_include_directories(BITS INTERFACE .)
   target_include_directories(BITS INTERFACE ./include)
+  target_include_directories(BITS INTERFACE ../../include)
   target_compile_features(BITS INTERFACE cxx_std_17)
 
   MESSAGE(STATUS "Compiling for processor: " ${CMAKE_HOST_SYSTEM_PROCESSOR})

@@ -206,7 +206,7 @@ int main(int argc, char** argv) {
             fixed_seed = pthash::random_value();
             config.verbose = true; // Only make verbose if seed is random
         } else {
-             config.verbose = false; // Don't be verbose if generating JSON
+             config.verbose = true; // Always be verbose to see timing details
         }
         config.lambda = lambda;
         config.seed = fixed_seed; // Use the fixed seed
@@ -215,7 +215,9 @@ int main(int argc, char** argv) {
         config.num_threads = std::thread::hardware_concurrency();
         // config.verbose is set above based on generate_details
 
-        std::cerr << "Building PHF (Seed: " << config.seed << ", Alpha: " << config.alpha << ", Lambda: " << config.lambda << ")..." << std::endl;
+        std::cerr << "Building PHF (Seed: " << config.seed << ", Alpha: " << config.alpha 
+                  << ", Lambda: " << config.lambda 
+                  << ", Threads: " << config.num_threads << ")..." << std::endl;
         auto timings = builder.build_from_keys(keys.begin(), num_keys, config);
 
         pthash_function_type mphf;
@@ -352,6 +354,26 @@ int main(int argc, char** argv) {
             gt["sample_key_raw_positions"] = sample_positions; // Renamed for clarity
             gt["sample_final_indices"] = sample_final_indices; // Added final index
             gt["sample_reordered_values"] = sample_reordered_values; // Renamed for clarity
+
+            // --- ADD DARRAY DETAILS to free_slots_structure JSON ---
+            nlohmann::json darray1_details;
+            const auto& d1 = mphf.get_free_slots().get_high_bits_d1(); // Use getter
+            darray1_details["Positions"] = d1.getNumPositions();         // Use existing getter
+            darray1_details["BlockInventory"] = d1.getBlockInventory(); // Use existing getter
+            darray1_details["SubBlockInventory"] = d1.getSubblockInventory(); // Use existing getter
+            darray1_details["OverflowPositions"] = d1.getOverflowPositions(); // Use existing getter
+            gt["free_slots_structure"]["DArray1_Details"] = darray1_details; // Add to JSON
+
+            nlohmann::json darray0_details;
+            const auto& d0 = mphf.get_free_slots().get_high_bits_d0(); // Use getter
+            darray0_details["Positions"] = d0.getNumPositions();
+            darray0_details["BlockInventory"] = d0.getBlockInventory();
+            darray0_details["SubBlockInventory"] = d0.getSubblockInventory();
+            darray0_details["OverflowPositions"] = d0.getOverflowPositions();
+            gt["free_slots_structure"]["DArray0_Details"] = darray0_details; // Add to JSON
+
+            std::cerr << "Added DArray inventory details to ground truth JSON." << std::endl;
+            // --- END ADDING DARRAY DETAILS ---
 
             // Output the detailed JSON to stdout for the script to capture
             std::cout << gt.dump(2) << std::endl; // Use indent 2 for readability

@@ -75,7 +75,11 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   target_link_libraries(example PRIVATE PTHASH CMD_LINE_PARSER)
   
   add_executable(build_phf src/build_phf.cpp)
-  target_link_libraries(build_phf PRIVATE PTHASH)
+  target_link_libraries(build_phf pthash_static)
+  target_include_directories(build_phf PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+  target_compile_features(build_phf PRIVATE cxx_std_17)
+  set_target_properties(build_phf PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 
   add_executable(test_fastmod src/test_fastmod.cpp)
   target_link_libraries(test_fastmod PRIVATE PTHASH)
@@ -99,5 +103,12 @@ add_library(pthash_static STATIC src/pthash_dummy.cpp) # Add dummy source file
 # (include paths, compile flags) defined by PTHASH INTERFACE into pthash_static.
 target_link_libraries(pthash_static INTERFACE PTHASH)
 # --- End of added section ---
+
+add_executable(generate_test_data src/generate_test_data.cpp)
+target_compile_features(generate_test_data PRIVATE cxx_std_17)
+set_target_properties(generate_test_data PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+
+# Add our test directory for the Elias-Fano test program
+add_subdirectory(src/test)
 
 endif()

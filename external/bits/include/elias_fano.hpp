@@ -3,7 +3,7 @@
 #include "bit_vector.hpp"
 #include "darray.hpp"
 #include "compact_vector.hpp"
-#include "utils/instrumentation.hpp"
+// instrumentation_context is now defined in darray.hpp
 
 #include <iterator>
 #include <cstdio> // For fprintf
@@ -314,6 +314,15 @@ struct elias_fano {
     const bits::compact_vector& get_low_bits() const {
         return m_low_bits;
     }
+    
+    // Add DArray getters
+    const DArray1& get_high_bits_d1() const {
+        return m_high_bits_d1;
+    }
+    
+    const DArray0& get_high_bits_d0() const {
+        return m_high_bits_d0;
+    }
     // ========= END AGGRESSIVE GETTERS =========
 
     void swap(elias_fano& other) {
@@ -346,16 +355,31 @@ private:
         //PTHASH_LOG("[P3.EF] ENTER elias_fano::visit_impl\n");
         visitor.visit(t.m_back);
         visitor.visit(t.m_high_bits);
-        visitor.visit(t.m_high_bits_d1);
-        visitor.visit(t.m_high_bits_d0);
-        
-        // Add detailed logging for m_low_bits (LowBits compact vector) just before serialization
+
+        // *** ADDED CONTEXT LOGGING FOR DARRAY1 ***
+        PTHASH_LOG("[EF_SAVE] Visiting m_high_bits_d1 START\n");
+        { // Scope for prefix setter
+            instrumentation_context::prefix_setter ctx("[DARRAY1_SAVE]");
+            visitor.visit(t.m_high_bits_d1);
+        }
+        PTHASH_LOG("[EF_SAVE] Visiting m_high_bits_d1 END\n");
+        // *** END CONTEXT LOGGING ***
+
+        // *** ADDED CONTEXT LOGGING FOR DARRAY0 ***
+        PTHASH_LOG("[EF_SAVE] Visiting m_high_bits_d0 START\n");
+        { // Scope for prefix setter
+            instrumentation_context::prefix_setter ctx("[DARRAY0_SAVE]");
+            visitor.visit(t.m_high_bits_d0);
+        }
+        PTHASH_LOG("[EF_SAVE] Visiting m_high_bits_d0 END\n");
+        // *** END CONTEXT LOGGING ***
+
+        // Log m_low_bits (as before)
         PTHASH_LOG("[CV_LOWBITS_SAVE] Pre-Save State: Size=%llu, Width=%llu, Mask=0x%llX, DataSize=%lu\n",
-            (unsigned long long)t.m_low_bits.size(), 
+            (unsigned long long)t.m_low_bits.size(),
             (unsigned long long)t.m_low_bits.width(),
             (unsigned long long)(t.m_low_bits.width() == 64 ? uint64_t(-1) : ((uint64_t(1) << t.m_low_bits.width()) - 1)),
             (unsigned long)t.m_low_bits.data().size());
-            
         visitor.visit(t.m_low_bits);
         PTHASH_LOG("[CV_LOWBITS_SAVE] Finished visiting m_low_bits\n");
         //PTHASH_LOG("[P3.EF] EXIT elias_fano::visit_impl\n");

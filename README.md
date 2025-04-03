@@ -119,6 +119,22 @@ for bucket ids. To overcome this, you can either lower the value of `c` or recom
 
 to use 64-bit integers for bucket ids.
 
+### Enable Instrumentation
+
+This fork includes instrumentation features for debugging. These can be enabled during compile time:
+
+    cmake .. -D PTHASH_ENABLE_INSTRUMENTATION=On
+
+When enabled, the library will output detailed logs to `stderr` about internal operations, making it easier 
+to debug and understand the internal workings of PTHash, especially during lookup operations. This is
+particularly useful for understanding issues with:
+
+- `compact_vector` access
+- Elias-Fano encoding/lookup operations
+- PHF lookup and hash computations
+
+The instrumentation is disabled by default for optimal performance.
+
 Quick Start
 -----
 
@@ -305,3 +321,37 @@ The code has been compiled with gcc 9.4.0, with flags `-O3` and `-march=native` 
 | inter-D | 0.88 | 2.416 | 9.20 | 19.95 | 8.06 | 17.48 | 17.64 | 38.27 | 46.09 | 4.53 | 126 |
 | inter-EF | 0.99 | 4.429 | 9.19 | 18.81 | 22.12 | 45.28 | 6.41 | 13.13 | 48.86 | 2.23 | 172 |
 | inter-D | 0.94 | 3.796 | 9.21 | 21.50 | 11.69 | 27.31 | 10.83 | 25.29 | 42.81 | 3.17 | 113 |
+
+Additional Tools in this Fork
+-----
+
+This fork introduces additional utilities for testing and debugging specific components of PTHash.
+
+### Testing Elias-Fano Implementation
+
+The Elias-Fano succinct data structure is a key component in PTHash's compact representation. The `test_elias_fano` tool allows testing this component in isolation:
+
+```
+./test_elias_fano
+```
+
+This runs a series of test cases with various data patterns to verify the Elias-Fano implementation's correctness, especially the critical `.access()` method. When combined with instrumentation, it provides detailed insight into internal operations.
+
+### Building PHF with Debugging
+
+The `build_phf` tool is a focused utility for creating perfect hash functions with enhanced debugging capabilities:
+
+```
+./build_phf -i input_keys.bin -o output.mph
+```
+
+This tool provides:
+- Detailed logging when instrumentation is enabled
+- Sample key lookup tracing
+- JSON output of intermediate values for debugging
+
+Options include:
+- `-i <filename>`: Input file containing keys (binary format, uint64_t)
+- `-o <filename>`: Output file for the generated PHF
+- `-s <num>`: Number of sample keys to test and include in debug output
+- `-n <num>`: Number of keys in the input file
