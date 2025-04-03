@@ -1,8 +1,10 @@
 #pragma once
 
 #include <array>
+#include <cstdio> // For fprintf
 
 #include "utils/util.hpp"
+#include "fastmod.h" // Include fastmod for logging usage
 
 namespace pthash {
 
@@ -161,10 +163,31 @@ struct skew_bucketer {
     }
 
     inline uint64_t bucket(uint64_t hash) const {
+        fprintf(stderr, "[LP5] ENTER skew_bucketer::bucket(hash=h1=%llu)\n", (unsigned long long)hash);
+        static const double a_double = constants::a;
         static const uint64_t T = constants::a * static_cast<double>(UINT64_MAX);
-        return (hash < T) ? fastmod::fastmod_u64(hash, m_M_num_dense_buckets, m_num_dense_buckets)
-                          : m_num_dense_buckets + fastmod::fastmod_u64(hash, m_M_num_sparse_buckets,
-                                                                       m_num_sparse_buckets);
+        fprintf(stderr, "[LP5]   Threshold T = %llu (derived from %.17g)\n", (unsigned long long)T, a_double);
+
+        uint64_t bucket_id;
+        if (hash < T) {
+            fprintf(stderr, "[LP5]   Comparing hash < T: %llu < %llu -> true (dense)\n", (unsigned long long)hash, (unsigned long long)T);
+            fprintf(stderr, "[LP5]   Using dense path.\n");
+            fprintf(stderr, "[LP5]   Calling fastmod_u64(hash=%llu, M_dense=0x%016llX%016llX, num_dense=%llu)\n",
+                    (unsigned long long)hash, (unsigned long long)(m_M_num_dense_buckets >> 64), (unsigned long long)m_M_num_dense_buckets, (unsigned long long)m_num_dense_buckets);
+            bucket_id = fastmod::fastmod_u64(hash, m_M_num_dense_buckets, m_num_dense_buckets);
+             fprintf(stderr, "[LP5]   fastmod_u64 result (dense) = %llu\n", (unsigned long long)bucket_id);
+        } else {
+            fprintf(stderr, "[LP5]   Comparing hash < T: %llu < %llu -> false (sparse)\n", (unsigned long long)hash, (unsigned long long)T);
+            fprintf(stderr, "[LP5]   Using sparse path.\n");
+             fprintf(stderr, "[LP5]   Calling fastmod_u64(hash=%llu, M_sparse=0x%016llX%016llX, num_sparse=%llu)\n",
+                     (unsigned long long)hash, (unsigned long long)(m_M_num_sparse_buckets >> 64), (unsigned long long)m_M_num_sparse_buckets, (unsigned long long)m_num_sparse_buckets);
+            uint64_t sparse_mod = fastmod::fastmod_u64(hash, m_M_num_sparse_buckets, m_num_sparse_buckets);
+            fprintf(stderr, "[LP5]   fastmod_u64 result (sparse_mod) = %llu\n", (unsigned long long)sparse_mod);
+             fprintf(stderr, "[LP5]   Adding num_dense = %llu\n", (unsigned long long)m_num_dense_buckets);
+            bucket_id = m_num_dense_buckets + sparse_mod;
+        }
+        fprintf(stderr, "[LP5] EXIT skew_bucketer::bucket -> bucket_id=%llu\n", (unsigned long long)bucket_id);
+        return bucket_id;
     }
 
     uint64_t num_buckets() const {
@@ -183,6 +206,7 @@ struct skew_bucketer {
         std::swap(m_M_num_sparse_buckets, other.m_M_num_sparse_buckets);
     }
 
+    // ========= START AGGRESSIVE GETTERS =========
     uint64_t get_num_dense_buckets() const {
         return m_num_dense_buckets;
     }
@@ -198,6 +222,7 @@ struct skew_bucketer {
     __uint128_t get_M_sparse() const {
         return m_M_num_sparse_buckets;
     }
+    // ========= END AGGRESSIVE GETTERS =========
 
     template <typename Visitor>
     void visit(Visitor& visitor) const {
@@ -212,10 +237,23 @@ struct skew_bucketer {
 private:
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
+        // ======== [P3.SKEW] START ========
+        fprintf(stderr, "[P3.SKEW] ENTER skew_bucketer::visit_impl\n");
+
+        fprintf(stderr, "[P3.SKEW] Visiting m_num_dense_buckets... Type: %s, Value: %llu, Addr: %p, Size: %lu\n", typeid(t.m_num_dense_buckets).name(), (unsigned long long)t.m_num_dense_buckets, (void*)&t.m_num_dense_buckets, sizeof(t.m_num_dense_buckets));
         visitor.visit(t.m_num_dense_buckets);
+
+        fprintf(stderr, "[P3.SKEW] Visiting m_num_sparse_buckets... Type: %s, Value: %llu, Addr: %p, Size: %lu\n", typeid(t.m_num_sparse_buckets).name(), (unsigned long long)t.m_num_sparse_buckets, (void*)&t.m_num_sparse_buckets, sizeof(t.m_num_sparse_buckets));
         visitor.visit(t.m_num_sparse_buckets);
+
+        fprintf(stderr, "[P3.SKEW] Visiting m_M_num_dense_buckets... Type: %s, Value: %016llx%016llx, Addr: %p, Size: %lu\n", typeid(t.m_M_num_dense_buckets).name(), (unsigned long long)(t.m_M_num_dense_buckets >> 64), (unsigned long long)t.m_M_num_dense_buckets, (void*)&t.m_M_num_dense_buckets, sizeof(t.m_M_num_dense_buckets));
         visitor.visit(t.m_M_num_dense_buckets);
+
+        fprintf(stderr, "[P3.SKEW] Visiting m_M_num_sparse_buckets... Type: %s, Value: %016llx%016llx, Addr: %p, Size: %lu\n", typeid(t.m_M_num_sparse_buckets).name(), (unsigned long long)(t.m_M_num_sparse_buckets >> 64), (unsigned long long)t.m_M_num_sparse_buckets, (void*)&t.m_M_num_sparse_buckets, sizeof(t.m_M_num_sparse_buckets));
         visitor.visit(t.m_M_num_sparse_buckets);
+
+        fprintf(stderr, "[P3.SKEW] EXIT skew_bucketer::visit_impl\n");
+        // ======== [P3.SKEW] END ========
     }
 
     uint64_t m_num_dense_buckets, m_num_sparse_buckets;

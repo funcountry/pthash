@@ -7,11 +7,15 @@
 #include <chrono>
 #include <iomanip> // For std::setw
 #include <numeric> // For std::iota
+#include <cstdio>  // For fprintf
+#include <unordered_map> // For sample key lookup
 
 // Include necessary PTHash headers
 #include "pthash.hpp"       // Main PTHash header
 #include "essentials.hpp"   // For saving/loading
 #include "nlohmann/json.hpp" // nlohmann/json library
+#include "utils/util.hpp" // For constants
+#include "utils/hasher.hpp" // For default_hash64 used in logging
 
 // Define the specific PTHash configuration we want to use
 // *** MUST MATCH THE CONFIGURATION USED IN THE ORIGINAL BUILD & WRAPPER ***
@@ -55,8 +59,9 @@ std::vector<uint16_t> read_values(const std::string& filename) {
 nlohmann::json get_bit_vector_details(const bits::bit_vector& bv) {
     nlohmann::json j;
     // *** DEBUG PRINT ***
-    std::cerr << "[DEBUG] get_bit_vector_details: bv.num_bits()=" << bv.num_bits()
-              << ", bv.data().size()=" << bv.data().size() << std::endl;
+    fprintf(stderr, "[DEBUG] get_bit_vector_details: bv.num_bits()=%llu, bv.data().size()=%lu\n",
+            (unsigned long long)bv.num_bits(), (unsigned long)bv.data().size());
+    // --- END DEBUG PRINT ---
     j["NumBits"] = bv.num_bits();
     j["DataVecLen"] = bv.data().size(); // Use existing data() method
     return j;
@@ -66,7 +71,8 @@ nlohmann::json get_bit_vector_details(const bits::bit_vector& bv) {
 nlohmann::json get_vector_uint64_details(const std::vector<uint64_t>& vec) {
     nlohmann::json j;
     // *** DEBUG PRINT ***
-    std::cerr << "[DEBUG] get_vector_uint64_details: vec.size()=" << vec.size() << std::endl;
+    fprintf(stderr, "[DEBUG] get_vector_uint64_details: vec.size()=%lu\n", (unsigned long)vec.size());
+    // --- END DEBUG PRINT ---
     j["Size"] = vec.size();
     return j;
 }
@@ -74,9 +80,9 @@ nlohmann::json get_vector_uint64_details(const std::vector<uint64_t>& vec) {
 nlohmann::json get_compact_vector_details(const bits::compact_vector& cv) {
     nlohmann::json j;
     // *** DEBUG PRINT ***
-    std::cerr << "[DEBUG] get_compact_vector_details: cv.size()=" << cv.size() 
-              << ", cv.width()=" << cv.width()
-              << ", cv.data().size()=" << cv.data().size() << std::endl;
+    fprintf(stderr, "[DEBUG] get_compact_vector_details: cv.size()=%llu, cv.width()=%llu, cv.data().size()=%lu\n",
+           (unsigned long long)cv.size(), (unsigned long long)cv.width(), (unsigned long)cv.data().size());
+    // --- END DEBUG PRINT ---
     j["Size"] = cv.size(); // Use existing size() method
     j["Width"] = cv.width(); // Use existing width() method
     // Calculate mask based on width
@@ -106,13 +112,14 @@ nlohmann::json get_elias_fano_details(const bits::elias_fano<false, false>& ef) 
      nlohmann::json j;
      // In the C++ structure, ef.get_back() contains the universe size (m_back)
      // And ef.size() returns the number of keys (m_low_bits.size())
-     j["UniverseSize"] = ef.get_back(); // Include universe size for debugging 
+     j["UniverseSize"] = ef.get_back(); // Include universe size for debugging
      j["NumKeys"] = ef.size(); // Use existing size() method
-     
+
      // Debug print for troubleshooting serialization vs loading
-     std::cerr << "[DEBUG] EliasFano details: UniverseSize=" << ef.get_back() 
-               << ", NumKeys=" << ef.size() << std::endl;
-               
+     fprintf(stderr, "[DEBUG] EliasFano details: UniverseSize=%llu, NumKeys=%llu\n",
+             (unsigned long long)ef.get_back(), (unsigned long long)ef.size());
+     // --- END DEBUG PRINT ---
+
      // Use public getters we defined
      j["HighBits"] = get_bit_vector_details(ef.get_high_bits());
      j["LowBits"] = get_compact_vector_details(ef.get_low_bits());
@@ -124,10 +131,12 @@ nlohmann::json get_skew_bucketer_details(const pthash::skew_bucketer& b) {
     nlohmann::json j;
     j["NumDense"] = b.get_num_dense_buckets(); // Use temporary getter
     j["NumSparse"] = b.get_num_sparse_buckets(); // Use temporary getter
-    j["MDenseH"] = uint64_t(b.get_M_dense() >> 64); // Use temporary getter
-    j["MDenseL"] = uint64_t(b.get_M_dense());      // Use temporary getter
-    j["MSparseH"] = uint64_t(b.get_M_sparse() >> 64); // Use temporary getter
-    j["MSparseL"] = uint64_t(b.get_M_sparse());     // Use temporary getter
+    __uint128_t m_dense = b.get_M_dense();       // Use temporary getter
+    __uint128_t m_sparse = b.get_M_sparse();     // Use temporary getter
+    j["MDenseH"] = uint64_t(m_dense >> 64);
+    j["MDenseL"] = uint64_t(m_dense);
+    j["MSparseH"] = uint64_t(m_sparse >> 64);
+    j["MSparseL"] = uint64_t(m_sparse);
     return j;
 }
 
@@ -174,14 +183,16 @@ int main(int argc, char** argv) {
         // Regen seed if needed
         if (fixed_seed == pthash::constants::invalid_seed) {
             fixed_seed = pthash::random_value();
+            config.verbose = true; // Only make verbose if seed is random
+        } else {
+             config.verbose = false; // Don't be verbose if generating JSON
         }
         config.lambda = lambda;
         config.seed = fixed_seed; // Use the fixed seed
         config.search = search_type;
         config.minimal = minimal_build;
         config.num_threads = std::thread::hardware_concurrency();
-        // Make verbose ONLY if NOT generating details, to avoid mixing outputs
-        config.verbose = !generate_details;
+        // config.verbose is set above based on generate_details
 
         std::cerr << "Building PHF (Seed: " << config.seed << ", Alpha: " << config.alpha << ", Lambda: " << config.lambda << ")..." << std::endl;
         auto timings = builder.build_from_keys(keys.begin(), num_keys, config);
@@ -199,7 +210,8 @@ int main(int argc, char** argv) {
         for (uint64_t i = 0; i < num_keys; ++i) {
             uint64_t phf_index = mphf(keys[i]);
             if (phf_index >= num_keys) {
-                 std::cerr << "CRITICAL ERROR: PHF index " << phf_index << " out of bounds for key " << keys[i] << " (num_keys=" << num_keys << ")!" << std::endl;
+                 fprintf(stderr, "CRITICAL ERROR: PHF index %llu out of bounds for key %llu (num_keys=%llu)!\n",
+                         (unsigned long long)phf_index, (unsigned long long)keys[i], (unsigned long long)num_keys);
                  throw std::runtime_error("PHF index out of bounds!");
             }
             reordered_values[phf_index] = values[i];
@@ -255,7 +267,7 @@ int main(int argc, char** argv) {
                  if (it != key_to_original_index.end()) {
                      sample_indices.push_back(it->second);
                  } else {
-                     std::cerr << "Warning: Sample key " << sk << " not found in input keys!" << std::endl;
+                     fprintf(stderr, "Warning: Sample key %llu not found in input keys!\n", (unsigned long long)sk);
                  }
             }
 

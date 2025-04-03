@@ -3,6 +3,7 @@
 // See also https://github.com/jermp/bench_hash_functions
 
 #include <xxh3.h>
+#include <cstdio> // For fprintf
 
 namespace pthash {
 
@@ -181,7 +182,11 @@ struct murmurhash2_64 {
 
     // specialization for uint64_t
     static inline hash64 hash(uint64_t const& val, uint64_t seed) {
-        return MurmurHash2_64(reinterpret_cast<char const*>(&val), sizeof(val), seed);
+        fprintf(stderr, "[LP5] ENTER murmurhash2_64::hash(val=%llu, seed=%llu)\n", (unsigned long long)val, (unsigned long long)seed);
+        uint64_t hash_val = MurmurHash2_64(reinterpret_cast<char const*>(&val), sizeof(val), seed);
+        fprintf(stderr, "[LP5]   Calculated hash_val = %llu (0x%llX)\n", (unsigned long long)hash_val, (unsigned long long)hash_val);
+        fprintf(stderr, "[LP5] EXIT murmurhash2_64::hash -> returning hash64 object\n");
+        return hash64(hash_val);
     }
 };
 
