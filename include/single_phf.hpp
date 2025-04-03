@@ -75,11 +75,27 @@ struct single_phf  //
     uint64_t operator()(T const& key) const {
         fprintf(stderr, "[P4] ENTER single_phf::operator()\n");
         fprintf(stderr, "[P4] Hasher::hash(key, m_seed=%llu) ...\n", (unsigned long long)m_seed);
+        
+        // Use if constexpr to handle different key types safely
+        if constexpr (std::is_integral_v<T>) {
+            fprintf(stderr, "[P8_LOOKUP_CPP] === Processing Key: %llu ===\n", (unsigned long long)key);
+        } else {
+            fprintf(stderr, "[P8_LOOKUP_CPP] === Processing Key (non-integer) ===\n");
+        }
+        
         auto hash = Hasher::hash(key, m_seed);
         fprintf(stderr, "[P4]   ... returned hash={%llu, %llu}\n", (unsigned long long)hash.first(), (unsigned long long)hash.second());
         fprintf(stderr, "[P4] Calling position(hash)...\n");
         uint64_t final_pos = position(hash);
         fprintf(stderr, "[P4] EXIT single_phf::operator() -> %llu\n", (unsigned long long)final_pos);
+        
+        // Use if constexpr to handle different key types safely
+        if constexpr (std::is_integral_v<T>) {
+            fprintf(stderr, "[P8_LOOKUP_CPP] === Finished Key: %llu ===\n", (unsigned long long)key);
+        } else {
+            fprintf(stderr, "[P8_LOOKUP_CPP] === Finished Key (non-integer) ===\n");
+        }
+        
         return final_pos;
     }
 
@@ -89,10 +105,12 @@ struct single_phf  //
         fprintf(stderr, "[P4] Calling m_bucketer.bucket(hash.first()=%llu)...\n", (unsigned long long)hash.first());
         const uint64_t bucket_id = m_bucketer.bucket(hash.first());
         fprintf(stderr, "[P4] m_bucketer.bucket returned bucket_id: %llu\n", (unsigned long long)bucket_id);
+        fprintf(stderr, "[P8_LOOKUP_CPP]   bucket_id: %llu\n", (unsigned long long)bucket_id);
 
         fprintf(stderr, "[P4] Calling m_pilots.access(bucket=%llu)...\n", (unsigned long long)bucket_id);
         const uint64_t pilot = m_pilots.access(bucket_id);
         fprintf(stderr, "[P4] m_pilots.access returned pilot: %llu\n", (unsigned long long)pilot);
+        fprintf(stderr, "[P8_LOOKUP_CPP]   pilot: %llu\n", (unsigned long long)pilot);
 
         uint64_t p = 0;
         if constexpr (Search == pthash_search_type::xor_displacement) {
@@ -105,6 +123,9 @@ struct single_phf  //
                     (unsigned long long)hash.second(), (unsigned long long)hashed_pilot, (unsigned long long)xor_result, (unsigned long long)m_table_size);
             p = fastmod::fastmod_u64(xor_result, m_M_128, m_table_size);
             fprintf(stderr, "[P4]   Calculated p = %llu\n", (unsigned long long)p);
+            fprintf(stderr, "[P8_LOOKUP_CPP]   h1: %llu\n", (unsigned long long)hash.first());
+            fprintf(stderr, "[P8_LOOKUP_CPP]   h2: %llu\n", (unsigned long long)hash.second());
+            fprintf(stderr, "[P8_LOOKUP_CPP]   raw_pos (p): %llu\n", (unsigned long long)p);
         } else {
             // This path corresponds to the description, assuming ADD displacement is the `else`
             fprintf(stderr, "[P4] Using ADD displacement...\n");
@@ -122,30 +143,69 @@ struct single_phf  //
                     (unsigned long long)intermediate_hash_mix, (unsigned long long)pilot, (unsigned long long)shifted_mix, (unsigned long long)pilot, (unsigned long long)sum_for_mod, (unsigned long long)m_table_size);
             p = fastmod::fastmod_u32(sum_for_mod, m_M_64, m_table_size);
             fprintf(stderr, "[P4]   Calculated p = %llu\n", (unsigned long long)p);
+            fprintf(stderr, "[P8_LOOKUP_CPP]   h1: %llu\n", (unsigned long long)hash.first());
+            fprintf(stderr, "[P8_LOOKUP_CPP]   h2: %llu\n", (unsigned long long)hash.second());
+            fprintf(stderr, "[P8_LOOKUP_CPP]   raw_pos (p): %llu\n", (unsigned long long)p);
         }
+
+        uint64_t num_keys_val = num_keys();
+        fprintf(stderr, "[P8_LOOKUP_CPP]   num_keys: %llu\n", (unsigned long long)num_keys_val);
+        
+        fprintf(stderr, "[P8_LOOKUP_CPP]   Checking condition: p (%llu) < num_keys (%llu)\n", 
+                (unsigned long long)p, (unsigned long long)num_keys_val);
+        
+        uint64_t final_index;
 
         if constexpr (Minimal) {
             fprintf(stderr, "[P4] Minimal=true. Checking if p (%llu) < num_keys() (%llu)...\n", (unsigned long long)p, (unsigned long long)num_keys());
             if (PTHASH_LIKELY(p < num_keys())) {
                 fprintf(stderr, "[P4]   p < num_keys(). Returning p.\n");
+                final_index = p;
+                fprintf(stderr, "[P8_LOOKUP_CPP]   Condition TRUE. Final index = p = %llu\n", 
+                        (unsigned long long)final_index);
+                    
                 fprintf(stderr, "[P4] EXIT single_phf::position -> %llu\n", (unsigned long long)p);
+                
+                fprintf(stderr, "[P8_LOOKUP_CPP]   Final Mapped Index: %llu\n", (unsigned long long)final_index);
+                
                 return p;
             } else {
                  fprintf(stderr, "[P4]   p >= num_keys()...\n");
                  uint64_t index = p - num_keys();
                  fprintf(stderr, "[P8.PHF_POS] Minimal=true, p (%llu) >= num_keys (%llu). Calculating index = %llu - %llu = %llu\n",
                         (unsigned long long)p, (unsigned long long)num_keys(), (unsigned long long)p, (unsigned long long)num_keys(), (unsigned long long)index);
+                 
+                 fprintf(stderr, "[P8_LOOKUP_CPP]   Condition FALSE. Calling m_free_slots.access(p - num_keys = %llu)\n", 
+                        (unsigned long long)index);
+                    
                  fprintf(stderr, "[P4]   ... Calling m_free_slots.access(index=%llu)...\n", (unsigned long long)index);
-                 uint64_t final_pos = m_free_slots.access(index);
+                 
+                 final_index = m_free_slots.access(index);
+                 
                  fprintf(stderr, "[P8.PHF_POS] m_free_slots.access(%llu) returned final_mapped_index: %llu\n",
-                        (unsigned long long)index, (unsigned long long)final_pos);
-                 fprintf(stderr, "[P4]   m_free_slots.access returned final_pos: %llu\n", (unsigned long long)final_pos);
-                 fprintf(stderr, "[P4] EXIT single_phf::position -> %llu\n", (unsigned long long)final_pos);
-                 return final_pos;
+                        (unsigned long long)index, (unsigned long long)final_index);
+                 fprintf(stderr, "[P4]   m_free_slots.access returned final_pos: %llu\n", (unsigned long long)final_index);
+                 
+                 fprintf(stderr, "[P8_LOOKUP_CPP]   m_free_slots.access(%llu) returned final_index: %llu\n", 
+                        (unsigned long long)index, (unsigned long long)final_index);
+                 
+                 fprintf(stderr, "[P4] EXIT single_phf::position -> %llu\n", (unsigned long long)final_index);
+                 
+                 fprintf(stderr, "[P8_LOOKUP_CPP]   Final Mapped Index: %llu\n", (unsigned long long)final_index);
+                 
+                 return final_index;
             }
         } else {
             fprintf(stderr, "[P4] Minimal=false. Returning p.\n");
+            
+            final_index = p;
+            fprintf(stderr, "[P8_LOOKUP_CPP]   Non-minimal mode. Final index = p = %llu\n", 
+                    (unsigned long long)final_index);
+                    
             fprintf(stderr, "[P4] EXIT single_phf::position -> %llu\n", (unsigned long long)p);
+            
+            fprintf(stderr, "[P8_LOOKUP_CPP]   Final Mapped Index: %llu\n", (unsigned long long)final_index);
+            
             return p;
         }
     }

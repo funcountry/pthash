@@ -14,6 +14,7 @@
   "include": [
     "src/build_phf.cpp",
     "src/test_fastmod.cpp",
+    "src/test_elias_fano.cpp",
     "include/pthash.hpp",
     "include/single_phf.hpp",
     "include/partitioned_phf.hpp",
