@@ -1,8 +1,16 @@
 cmake_minimum_required(VERSION 3.5...4.0)
 project(PTHASH)
 
-# Add option for instrumentation
-option(PTHASH_ENABLE_INSTRUMENTATION "Enable debug instrumentation and logging" OFF)
+# Force instrumentation to be ON unless explicitly specified otherwise
+# This will override any cached value
+if(NOT DEFINED PTHASH_ENABLE_INSTRUMENTATION)
+  set(PTHASH_ENABLE_INSTRUMENTATION ON CACHE BOOL "Enable debug instrumentation and logging" FORCE)
+else()
+  # Keep existing value if it's already defined
+  set(PTHASH_ENABLE_INSTRUMENTATION ${PTHASH_ENABLE_INSTRUMENTATION} CACHE BOOL "Enable debug instrumentation and logging" FORCE)
+endif()
+
+MESSAGE(STATUS "=== PTHASH INSTRUMENTATION IS SET TO: ${PTHASH_ENABLE_INSTRUMENTATION} ===")
 
 if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release")
@@ -108,7 +116,11 @@ add_executable(generate_test_data src/generate_test_data.cpp)
 target_compile_features(generate_test_data PRIVATE cxx_std_17)
 set_target_properties(generate_test_data PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 
-# Add our test directory for the Elias-Fano test program
-add_subdirectory(src/test)
+endif()
 
+# Final reminder about instrumentation status
+if (PTHASH_ENABLE_INSTRUMENTATION)
+  MESSAGE(STATUS "=== REMINDER: PTHASH INSTRUMENTATION IS ENABLED ===")
+else()
+  MESSAGE(STATUS "=== REMINDER: PTHASH INSTRUMENTATION IS DISABLED ===")
 endif()

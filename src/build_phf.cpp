@@ -204,9 +204,9 @@ int main(int argc, char** argv) {
         // Regen seed if needed
         if (fixed_seed == pthash::constants::invalid_seed) {
             fixed_seed = pthash::random_value();
-            config.verbose = true; // Only make verbose if seed is random
+            config.verbose = false; // Only make verbose if seed is random
         } else {
-             config.verbose = true; // Always be verbose to see timing details
+             config.verbose = false; // Always be verbose to see timing details
         }
         config.lambda = lambda;
         config.seed = fixed_seed; // Use the fixed seed
