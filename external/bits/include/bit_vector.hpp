@@ -2,11 +2,9 @@
 
 #include <cstddef>
 #include <vector>
-#include <cstdio> // For fprintf
 
 #include "essentials.hpp"
 #include "util.hpp"
-#include "utils/instrumentation.hpp"
 
 namespace bits {
 
@@ -333,25 +331,8 @@ protected:
 
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
-        PTHASH_LOG_VARS(const char* prefix = "[P3.SAVE.BV]");
-
-        // Log m_bits
-        PTHASH_LOG_VARS(size_t offset_before_bits = visitor.bytes());
-        PTHASH_LOG("%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu\n",
-                prefix, "m_num_bits", "uint64_t", sizeof(t.m_num_bits), offset_before_bits);
         visitor.visit(t.m_num_bits);
-        PTHASH_LOG_VARS(size_t offset_after_bits = visitor.bytes());
-        PTHASH_LOG("%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
-                prefix, "m_num_bits", offset_after_bits - offset_before_bits, offset_after_bits);
-
-        // Log m_data
-        PTHASH_LOG_VARS(size_t offset_before_data = visitor.bytes());
-        PTHASH_LOG("%s.BEFORE Name: %s, Type: %s, Offset: %zu\n",
-                prefix, "m_data", "std::vector<uint64_t>", offset_before_data);
         visitor.visit(t.m_data);
-        PTHASH_LOG_VARS(size_t offset_after_data = visitor.bytes());
-        PTHASH_LOG("%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
-                prefix, "m_data", offset_after_data - offset_before_data, offset_after_data);
     }
 };
 

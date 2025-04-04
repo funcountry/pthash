@@ -3,15 +3,6 @@
 // See also https://github.com/jermp/bench_hash_functions
 
 #include <xxh3.h>
-#include <cstdio> // For fprintf
-#include <cstddef>
-#include <cstdint>
-#include <cstring>
-#include <stdexcept>
-#include <string>
-#include <utility>
-#include "xxhash.h"
-#include "utils/instrumentation.hpp"
 
 namespace pthash {
 
@@ -60,9 +51,6 @@ struct byte_range {
         by Austin Appleby
 */
 static uint64_t MurmurHash2_64(void const* key, size_t len, uint64_t seed) {
-    // Added [LP5] entry log
-    PTHASH_LOG("[LP5] ENTER MurmurHash2_64(key=%p, len=%zu, seed=%llu)\n", key, len, (unsigned long long)seed);
-
     const uint64_t m = 0xc6a4a7935bd1e995ULL;
     const int r = 47;
 
@@ -125,8 +113,6 @@ static uint64_t MurmurHash2_64(void const* key, size_t len, uint64_t seed) {
     h *= m;
     h ^= h >> r;
 
-    // Added [LP5] exit log
-    PTHASH_LOG("[LP5] EXIT MurmurHash2_64 -> hash=%llu (0x%llX)\n", (unsigned long long)h, (unsigned long long)h);
     return h;
 }
 
@@ -195,11 +181,7 @@ struct murmurhash2_64 {
 
     // specialization for uint64_t
     static inline hash64 hash(uint64_t const& val, uint64_t seed) {
-        PTHASH_LOG("[LP5] ENTER murmurhash2_64::hash(val=%llu, seed=%llu)\n", (unsigned long long)val, (unsigned long long)seed);
-        uint64_t hash_val = MurmurHash2_64(reinterpret_cast<char const*>(&val), sizeof(val), seed);
-        PTHASH_LOG("[LP5]   Calculated hash_val = %llu (0x%llX)\n", (unsigned long long)hash_val, (unsigned long long)hash_val);
-        PTHASH_LOG("[LP5] EXIT murmurhash2_64::hash -> returning hash64 object\n");
-        return hash64(hash_val);
+        return MurmurHash2_64(reinterpret_cast<char const*>(&val), sizeof(val), seed);
     }
 };
 

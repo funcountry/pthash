@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5...4.0)
+cmake_minimum_required(VERSION 3.5)
 project(BITS)
 
 if (NOT CMAKE_BUILD_TYPE)
@@ -10,7 +10,6 @@ if (NOT TARGET BITS)
   add_library(BITS INTERFACE)
   target_include_directories(BITS INTERFACE .)
   target_include_directories(BITS INTERFACE ./include)
-  target_include_directories(BITS INTERFACE ../../include)
   target_compile_features(BITS INTERFACE cxx_std_17)
 
   MESSAGE(STATUS "Compiling for processor: " ${CMAKE_HOST_SYSTEM_PROCESSOR})

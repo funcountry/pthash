@@ -110,7 +110,7 @@ struct external_memory_builder_single_phf {
                 }
                 start = clock_type::now();
                 buckets_t buckets = tfm.buckets(config);
-                merge(pairs_blocks, buckets, config.verbose, config.num_threads);
+                merge(pairs_blocks, buckets, config.verbose);
                 buckets.flush();
                 for (auto& pairs_block : pairs_blocks) pairs_block.close();
                 num_non_empty_buckets = buckets.num_buckets();

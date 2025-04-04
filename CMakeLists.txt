@@ -81,20 +81,6 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   target_compile_features(build_phf PRIVATE cxx_std_17)
   set_target_properties(build_phf PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 
-  add_executable(test_fastmod src/test_fastmod.cpp)
-  target_link_libraries(test_fastmod PRIVATE PTHASH)
-
-  add_executable(test_elias_fano src/test_elias_fano.cpp)
-  target_link_libraries(test_elias_fano PRIVATE PTHASH)
-
-  file(GLOB TEST_SOURCES test/test_*.cpp)
-  foreach(TEST_SRC ${TEST_SOURCES})
-    get_filename_component (TEST_SRC_NAME ${TEST_SRC} NAME_WE) # without extension
-    add_executable(${TEST_SRC_NAME} ${TEST_SRC})
-    add_test(${TEST_SRC_NAME} ${TEST_SRC_NAME})
-    target_link_libraries(${TEST_SRC_NAME} PRIVATE PTHASH)
-  endforeach(TEST_SRC)
-
 # --- Add this section to create a static library for CGo linking ---
 add_library(pthash_static STATIC src/pthash_dummy.cpp) # Add dummy source file
 
@@ -107,8 +93,5 @@ target_link_libraries(pthash_static INTERFACE PTHASH)
 add_executable(generate_test_data src/generate_test_data.cpp)
 target_compile_features(generate_test_data PRIVATE cxx_std_17)
 set_target_properties(generate_test_data PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
-
-# Add our test directory for the Elias-Fano test program
-add_subdirectory(src/test)
 
 endif()

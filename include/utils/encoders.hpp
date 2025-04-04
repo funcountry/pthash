@@ -7,7 +7,6 @@
 #include <vector>
 #include <unordered_map>
 #include <cassert>
-#include <cstdio> // For fprintf
 
 namespace pthash {
 
@@ -191,15 +190,8 @@ struct dictionary {
     }
 
     uint64_t access(uint64_t i) const {
-        PTHASH_LOG("[P6.DICT] ENTER dictionary::access(i=%llu)\n", (unsigned long long)i);
-        PTHASH_LOG("[P6.DICT]   Calling m_ranks.access(%llu)...\n", (unsigned long long)i);
         uint64_t rank = m_ranks.access(i);
-        PTHASH_LOG("[P6.DICT]   m_ranks.access returned rank: %llu\n", (unsigned long long)rank);
-        PTHASH_LOG("[P6.DICT]   Calling m_dict.access(rank=%llu)...\n", (unsigned long long)rank);
-        uint64_t pilot = m_dict.access(rank);
-        PTHASH_LOG("[P6.DICT]   m_dict.access returned value (pilot): %llu\n", (unsigned long long)pilot);
-        PTHASH_LOG("[P6.DICT] EXIT dictionary::access -> %llu\n", (unsigned long long)pilot);
-        return pilot;
+        return m_dict.access(rank);
     }
 
     template <typename Visitor>
@@ -212,23 +204,11 @@ struct dictionary {
         visit_impl(visitor, *this);
     }
 
-    // ========= START AGGRESSIVE GETTERS =========
-    const bits::compact_vector& get_ranks() const {
-        return m_ranks;
-    }
-
-    const bits::compact_vector& get_dict() const {
-        return m_dict;
-    }
-    // ========= END AGGRESSIVE GETTERS =========
-
 private:
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
-        //PTHASH_LOG("[P3.DICT] ENTER dictionary::visit_impl\n");
         visitor.visit(t.m_ranks);
         visitor.visit(t.m_dict);
-        //PTHASH_LOG("[P3.DICT] EXIT dictionary::visit_impl\n");
     }
 
     bits::compact_vector m_ranks;
@@ -409,23 +389,8 @@ struct dual {
     }
 
     uint64_t access(uint64_t i) const {
-        PTHASH_LOG("[P6.DUAL] ENTER dual::access(i=%llu)\n", (unsigned long long)i);
-        PTHASH_LOG("[P6.DUAL]   Accessing m_front.size()...\n");
-        uint64_t front_size = m_front.size();
-        PTHASH_LOG("[P6.DUAL]   m_front.size() = %llu\n", (unsigned long long)front_size);
-        PTHASH_LOG("[P6.DUAL]   Checking if i (%llu) < front_size (%llu)\n", (unsigned long long)i, (unsigned long long)front_size);
-        uint64_t result;
-        if (i < front_size) {
-             PTHASH_LOG("[P6.DUAL]   Taking FRONT branch with index=%llu\n", (unsigned long long)i);
-             result = m_front.access(i);
-        } else {
-            uint64_t back_index = i - front_size;
-            PTHASH_LOG("[P6.DUAL]   Taking BACK branch with index=%llu (i - front_size = %llu - %llu)\n", 
-                   (unsigned long long)back_index, (unsigned long long)i, (unsigned long long)front_size);
-            result = m_back.access(back_index);
-        }
-        PTHASH_LOG("[P6.DUAL] EXIT dual::access -> %llu\n", (unsigned long long)result);
-        return result;
+        if (i < m_front.size()) return m_front.access(i);
+        return m_back.access(i - m_front.size());
     }
 
     template <typename Visitor>
@@ -438,23 +403,11 @@ struct dual {
         visit_impl(visitor, *this);
     }
 
-    // ========= START AGGRESSIVE GETTERS =========
-    const Front& get_front() const {
-        return m_front;
-    }
-
-    const Back& get_back() const {
-        return m_back;
-    }
-    // ========= END AGGRESSIVE GETTERS =========
-
 private:
     template <typename Visitor, typename T>
     static void visit_impl(Visitor& visitor, T&& t) {
-        //PTHASH_LOG("[P3.DUAL] ENTER dual::visit_impl\n");
         visitor.visit(t.m_front);
         visitor.visit(t.m_back);
-        //PTHASH_LOG("[P3.DUAL] EXIT dual::visit_impl\n");
     }
 
     Front m_front;

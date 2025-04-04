@@ -17,13 +17,10 @@
 #include <sys/resource.h>
 #include <cassert>
 #include <memory>
-#include <cstdio>
 
 #ifdef __GNUG__
 #include <cxxabi.h>  // for name demangling
 #endif
-
-#include "utils/instrumentation.hpp"
 
 namespace essentials {
 
@@ -351,51 +348,7 @@ struct generic_saver {
     template <typename T>
     void visit(T const& val) {
         if constexpr (is_pod<T>::value) {
-            PTHASH_LOG_VARS(const char* pod_prefix = "[P3.SAVE.POD]");
-            if constexpr (std::is_fundamental<T>::value) {
-                PTHASH_LOG_VARS(pod_prefix = "[P3.SAVE.FUNDAMENTAL]");
-            } else if constexpr (std::is_same<T, __uint128_t>::value) {
-                PTHASH_LOG_VARS(pod_prefix = "[P3.SAVE.U128]");
-            }
-
-            PTHASH_LOG_VARS(size_t initial_offset = m_os.tellp());
-            PTHASH_LOG_VARS(uint64_t high_part = 0; uint64_t low_part = 0); // Initialize
-            PTHASH_LOG_VARS(std::string value_str = "(value not logged)");
-
-            if constexpr (std::is_same<T, __uint128_t>::value) {
-                PTHASH_LOG_VARS(high_part = static_cast<uint64_t>(val >> 64));
-                PTHASH_LOG_VARS(low_part = static_cast<uint64_t>(val));
-                PTHASH_LOG("%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu, MathHigh: %llu, MathLow: %llu\n",
-                        pod_prefix, "POD_VALUE", "__uint128_t", sizeof(T), initial_offset,
-                        (unsigned long long)high_part, (unsigned long long)low_part);
-            } else if constexpr (!std::is_same<T, bool>::value && std::is_integral<T>::value) {
-                // Log value for other integral types (adjust format specifier if needed)
-                PTHASH_LOG_VARS(unsigned long long uval = static_cast<unsigned long long>(val));
-                PTHASH_LOG("%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu, Value: %llu (0x%llX)\n",
-                    pod_prefix, "POD_VALUE", typeid(T).name(), sizeof(T), initial_offset, uval, uval);
-            } else {
-                 // Basic log for other POD types
-                PTHASH_LOG("%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu\n",
-                        pod_prefix, "POD_VALUE", typeid(T).name(), sizeof(T), initial_offset);
-            }
-
-            // THE ACTUAL WRITE
-            save_pod(m_os, val); // Assumed to handle endianness correctly
-
-            PTHASH_LOG_VARS(size_t final_offset = m_os.tellp());
-            PTHASH_LOG_VARS(size_t bytes_written = final_offset - initial_offset);
-
-            // Determine actual write order if possible (requires knowing save_pod/endianness)
-            // For now, we'll assume little-endian where low bytes come first.
-            PTHASH_LOG_VARS(std::string order_note = "");
-            if constexpr (std::is_same<T, __uint128_t>::value) {
-               // ON LITTLE ENDIAN: The low_part bytes are written first.
-               PTHASH_LOG_VARS(order_note = ", Note: Wrote MathLow bytes then MathHigh bytes (assuming little-endian)");
-            }
-
-            PTHASH_LOG("%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu%s\n",
-                    pod_prefix, "POD_VALUE", bytes_written, final_offset, order_note.c_str());
-
+            save_pod(m_os, val);
         } else {
             val.visit(*this);
         }
@@ -404,60 +357,7 @@ struct generic_saver {
     template <typename T, typename Allocator>
     void visit(std::vector<T, Allocator> const& vec) {
         if constexpr (is_pod<T>::value) {
-            size_t n = vec.size();
-
-            // --- Log writing the size (n) ---
-            PTHASH_LOG_VARS(const char* size_prefix = "[P3.SAVE.VEC_SIZE]");
-            PTHASH_LOG_VARS(size_t initial_offset_size = m_os.tellp());
-            PTHASH_LOG("%s.BEFORE Name: %s, Type: %s, Size: %lu, Offset: %zu, Value: %lu\n",
-                    size_prefix, "vector_size", typeid(size_t).name(), sizeof(size_t), initial_offset_size, (unsigned long)n);
-
-            visit(n); // This recursively calls visit for size_t, which will log itself
-
-            PTHASH_LOG_VARS(size_t final_offset_size = m_os.tellp());
-            PTHASH_LOG_VARS(size_t bytes_written_size = final_offset_size - initial_offset_size);
-            PTHASH_LOG("%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
-                    size_prefix, "vector_size", bytes_written_size, final_offset_size);
-            // --- End log writing the size ---
-
-
-            // --- Log writing the data ---
-            if (n > 0) { // Only log data write if there's data
-               PTHASH_LOG_VAR(const char*, data_prefix, "[P3.SAVE.VEC_DATA]");
-               PTHASH_LOG_VAR(size_t, initial_offset_data, m_os.tellp());
-               size_t data_bytes_to_write = sizeof(T) * n; // This is needed for actual operations
-
-               // Preview (optional, adjust as needed)
-               PTHASH_LOG_VAR(std::string, preview, "");
-               if constexpr (std::is_same<T, uint64_t>::value || std::is_same<T, uint32_t>::value || std::is_same<T, uint16_t>::value) {
-                    PTHASH_LOG_VARS(preview = ", Preview: [");
-                    PTHASH_LOG_VARS(for(size_t k=0; k < std::min((size_t)3, n); ++k) preview += std::to_string(vec[k]) + (k<2 && k<n-1 ? ", " : ""));
-                    PTHASH_LOG_VARS(preview += "...]");
-               }
-
-               PTHASH_LOG("%s.BEFORE Name: %s, ElementType: %s, Count: %lu, ElementSize: %lu, TotalBytes: %lu, Offset: %zu%s\n",
-                       data_prefix, "vector_data", typeid(T).name(), (unsigned long)n, sizeof(T), data_bytes_to_write, initial_offset_data, preview.c_str());
-
-               m_os.write(reinterpret_cast<char const*>(vec.data()), static_cast<std::streamsize>(data_bytes_to_write));
-
-               PTHASH_LOG_VAR(size_t, final_offset_data, m_os.tellp());
-               PTHASH_LOG_VAR(size_t, bytes_written_data, final_offset_data - initial_offset_data);
-               
-               // Only check for errors in the logging stream if we're actually logging
-               #if PTHASH_ENABLE_INSTRUMENTATION
-                if (!m_os) {
-                     PTHASH_LOG("%s.ERROR Error occurred during vector data write!\n", data_prefix);
-                     // Consider throwing or handling the error appropriately
-                } else if (bytes_written_data != data_bytes_to_write) {
-                     PTHASH_LOG("%s.WARN Wrote %zu bytes but expected %zu bytes!\n", data_prefix, bytes_written_data, data_bytes_to_write);
-                }
-               #endif
-               
-               PTHASH_LOG("%s.AFTER Name: %s, BytesWritten: %zu, FinalOffset: %zu\n",
-                       data_prefix, "vector_data", bytes_written_data, final_offset_data);
-            }
-            // --- End log writing the data ---
-
+            save_vec(m_os, vec);
         } else {
             size_t n = vec.size();
             visit(n);
